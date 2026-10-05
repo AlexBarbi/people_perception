@@ -12,14 +12,17 @@
                         /perception/tracks_all, /perception/tracks_markers -> dynamic_points_filter
                         /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
                         obstacles for an Optimistic-Pessimistic MPC; nothing reads it yet)
-                      detector:=fake is the only detector so far: it places the people of people_script, it does not
-                      see them (scripts/fake_people_detector.py). Scripts in config/:
+                      detector:=centerpoint is autoware_lidar_centerpoint with the model in centerpoint_model.
+                      detector:=fake (default) places the people of people_script, it does not see them
+                      (scripts/fake_people_detector.py). Scripts in config/:
                         fake_people_warehouse_actors.yaml  (default) the two actors of the Gazebo warehouse, where
                                                            Gazebo moves them; needs the robot at its default spawn
                                                            and FAST-LIO started with the robot standing there
                         fake_people_example.yaml           invented people, 4 m ahead of where FAST-LIO started -->
   <arg name="people" default="false" description="Detect and track people and take them out of the scans for SC-PGO and TARE"/>
-  <arg name="detector" default="fake" description="Detector behind the cloud adapter: fake (people from people_script)"/>
+  <arg name="detector" default="fake" description="Detector behind the cloud adapter: fake (people from people_script) or centerpoint (autoware_lidar_centerpoint with the model of centerpoint_model)"/>
+  <arg name="centerpoint_model" default="$(env HOME)/RaNAV/models/lidar_centerpoint/v4.1/short_range"
+       description="Folder of the CenterPoint model: its two .onnx, ml_package.param.yaml, detection_class_remapper.param.yaml; the TensorRT engines are built there on the first start"/>
   <arg name="people_script" default="$(find-pkg-share people_perception)/config/fake_people_warehouse_actors.yaml"
        description="Script file of detector:=fake"/>
   <arg name="use_sim_time" default="true"/>
@@ -48,5 +51,15 @@
       <param name="script_file" value="$(var people_script)"/>
       <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
+    <!-- The real detector. Its engines are built on the first start (minutes; they are not portable between
+         machines or TensorRT versions). The pretrained Autoware models were trained on road data: a proof that the
+         chain runs, not a people detector for a warehouse. -->
+    <include if="$(eval '\'$(var detector)\' == \'centerpoint\'')"
+             file="$(find-pkg-share autoware_lidar_centerpoint)/launch/lidar_centerpoint.launch.xml">
+      <arg name="input/pointcloud" value="/perception/detector/pointcloud"/>
+      <arg name="output/objects" value="/perception/detector/objects"/>
+      <arg name="model_path" value="$(var centerpoint_model)"/>
+      <arg name="common_param_path" value="$(var config)/centerpoint_common.param.yaml"/>
+    </include>
   </group>
 </launch>

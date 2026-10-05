@@ -27,6 +27,7 @@
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
 
+  <exec_depend>autoware_lidar_centerpoint</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>

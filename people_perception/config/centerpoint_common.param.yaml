@@ -1,0 +1,19 @@
+# autoware_lidar_centerpoint (block B4 of docs/perception_pipeline.md): its centerpoint_common.param.yaml with what
+# this stack needs changed. The model itself (classes, range, voxel size, thresholds) is described by the
+# ml_package.param.yaml in the folder of the model.
+/**:
+  ros__parameters:
+    cloud_capacity: 2000000
+    post_process_params:
+      circle_nms_dist_threshold: 0.3   # [m] 0.5 in Autoware: people stand closer to each other than cars
+      iou_nms_search_distance_2d: 10.0
+      iou_nms_threshold: 0.1
+    densification_params:
+      world_frame_id: camera_init      # map in Autoware. The FAST-LIO odometry frame: detector_cloud_adapter
+                                       # publishes camera_init -> sensor_level with every cloud
+      num_past_frames: 1               # as the pretrained Autoware models were trained (the last scan is fused in,
+                                       # with its age as the 4th feature). 0 for a model trained on single scans
+    diagnostics:
+      max_allowed_processing_time_ms: 200.0
+      max_acceptable_consecutive_delay_ms: 1000.0
+      validation_callback_interval_ms: 100.0
