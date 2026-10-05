@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>people_perception</name>
+  <version>0.0.0</version>
+  <description>
+    People detection and tracking on the RoboSense Airy scans of FAST-LIO (docs/perception_pipeline.md): keeps the
+    people out of the SC-PGO map and of the TARE coverage, and hands them to the Opti-Pessi controller as obstacles.
+    The cloud adapter for the detector (block B3), the tracker (B5), the dynamic points filter (B6) and the
+    obstacle adapter (B10).
+  </description>
+  <maintainer email="alejandro.enrique.barbi@gmail.com">abarbi</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>autoware_perception_msgs</depend>
+  <depend>diagnostic_updater</depend>
+  <depend>eigen</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>people_perception_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
+  <depend>visualization_msgs</depend>
+
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rosbag2_py</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>diagnostic_msgs</test_depend>
+  <test_depend>rosbag2_storage_mcap</test_depend>
+  <test_depend>tf2_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

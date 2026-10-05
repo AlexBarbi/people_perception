@@ -1,0 +1,44 @@
+# dynamic_points_filter (block B6 of docs/perception_pipeline.md): the scans of FAST-LIO without the points of the
+# tracked people, for what accumulates over time (TARE coverage, SC-PGO keyframes).
+# terrainAnalysis, terrainAnalysisExt and far_planner keep reading /cloud_registered: what avoids collisions must see
+# the people.
+/**:
+    ros__parameters:
+        enabled: false                   # false: every cloud goes out as it came in. true: without the people of
+                                         # tracks_topic, which needs detector_cloud_adapter, a detector and
+                                         # people_tracker running (people_perception_launch.xml people:=true sets it)
+        qos_depth: 20                    # reliable, the queue length of the FAST-LIO publishers
+        duplicate_check_wait: 2.0        # [s] after its start the node forwards nothing, then stops if an output is
+                                         # already published: a second filter would double every scan
+        registered_cloud:                # frame camera_init
+            input_topic: /cloud_registered
+            output_topic: /registered_scan_static            # TARE: sub_registered_scan_topic_ in aliengo.yaml
+        body_cloud:                      # frame rslidar_lio
+            input_topic: /cloud_registered_body
+            output_topic: /cloud_registered_body_static      # SC-PGO: remap in fast_lio_slam_launch.xml
+
+        # The rest is used with enabled: true only. Starting values of the document, to be tuned on recorded data.
+        tracks_topic: /perception/tracks_all             # tentative and coasting tracks too: a few static points
+                                                         # lost cost little, the points of a person stay in the map
+        odometry_topic: /Odometry                        # pose of the body cloud in the frame of the tracks
+        removed_points_topic: /perception/dynamic_points # what was taken out of registered_cloud
+        publish_removed_points: true
+
+        # Cylinder around a track: radius = half the longer side of the box + margin_xy, at least min_radius, plus
+        # position_sigma_factor * position standard deviation of the track (small while it is detected, growing
+        # while it coasts); from margin_z_down under the box to margin_z_up above it
+        margin_xy: 0.20                  # [m]
+        min_radius: 0.35                 # [m]
+        margin_z_down: 0.10              # [m]
+        margin_z_up: 0.20                # [m]
+        position_sigma_factor: 1.0       # the document's coast_inflation (0.5 m/s): TrackedObjects does not say for
+                                         # how long a track has coasted, its covariance says where it may be. With the
+                                         # tracker tuning that ships it is about 0.4 m after 1 s
+
+        # A cloud waits for the tracks of its scan
+        max_wait: 0.25                   # [s] at most, then on_timeout
+        on_timeout: last_tracks          # last_tracks: the tracks of the closest scan, moved on with their velocity,
+                                         # if within max_track_staleness, else unfiltered | passthrough: unfiltered |
+                                         # drop: the cloud is discarded
+        max_track_staleness: 1.0         # [s]
+        queue_size: 10                   # clouds waiting per topic; one more lets the oldest go by on_timeout

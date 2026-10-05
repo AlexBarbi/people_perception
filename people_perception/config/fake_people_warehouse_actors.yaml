@@ -1,0 +1,45 @@
+# Script for fake_people_detector that follows the two walking actors of legged_gazebo/worlds/warehouse.world
+# (person_1, person_2), so the people of the simulation can be tracked and filtered before there is a detector model.
+#
+# The waypoints, delay_start and loop are those of the world file, in world coordinates. interpolation: gazebo moves
+# them as Gazebo Harmonic moves a scripted actor (see scripts/fake_people_detector.py): script time is the simulation
+# time, which is the stamp of the scans.
+#
+# origin is where the world origin is in camera_init. It holds only if
+#   - the robot is at the default spawn of warehouse_launch.xml (x:=-5.0 y:=-3.0, facing +x), and
+#   - FAST-LIO is started with the robot standing there (camera_init is where the Airy is at that moment), and
+#   - Gazebo has run since the world was loaded (the actors move with the simulation time).
+# Spawned or started elsewhere, change origin: [x, y, yaw] of the world origin seen from camera_init.
+#
+# Checked against the lidar in a headless simulation on 2026-10-05 (robot standing at the spawn, 51 s): the moving
+# points of each actor are 0.15 m (median; 0.27 m at worst in the turns) from where this script puts it - with
+# straight lines instead of the spline, 0.27 to 0.40 m; 99 % of the points on the actors left the static cloud; two
+# identities for the whole run.
+frame: camera_init
+origin: [4.7165, 3.0, 0.0]      # 5.0 - 0.2835 (the Airy is 0.2835 m ahead of the base), 3.0, no turn
+start_time: 0.0
+people:
+  - name: person_1              # along x = 3.5 between y = 4.5 and -4.5
+    size: [0.6, 0.6, 1.8]
+    floor_z: -0.47              # the Airy is 0.47 m above the floor when the robot stands
+    loop: true
+    delay_start: 0.0
+    interpolation: gazebo
+    waypoints:                  # [t, x, y] in the world
+      - [0.0, 3.5, 4.5]
+      - [7.5, 3.5, -4.5]
+      - [8.5, 3.5, -4.5]
+      - [16.0, 3.5, 4.5]
+      - [17.0, 3.5, 4.5]
+  - name: person_2              # along y = 2.0 between x = 2.5 and -6.5
+    size: [0.6, 0.6, 1.8]
+    floor_z: -0.47
+    loop: true
+    delay_start: 3.0
+    interpolation: gazebo
+    waypoints:
+      - [0.0, 2.5, 2.0]
+      - [7.5, -6.5, 2.0]
+      - [8.5, -6.5, 2.0]
+      - [16.0, 2.5, 2.0]
+      - [17.0, 2.5, 2.0]

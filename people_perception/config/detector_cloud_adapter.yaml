@@ -1,0 +1,19 @@
+# detector_cloud_adapter (block B3 of docs/perception_pipeline.md): the body cloud of FAST-LIO as the CenterPoint node
+# takes it (PointXYZIRC, 16 bytes) and in a frame whose floor stays level while the robot rolls and pitches.
+/**:
+    ros__parameters:
+        input_cloud_topic: /cloud_registered_body        # frame rslidar_lio: at the Airy, with the orientation of the base
+        odometry_topic: /Odometry                        # camera_init -> rslidar_lio, same stamp as the cloud
+        output_cloud_topic: /perception/detector/pointcloud
+        level_frame: sensor_level                        # origin and yaw of rslidar_lio, no roll, no pitch; its TF
+                                                         # from camera_init is published here
+        qos_depth: 20                                    # reliable, as FAST-LIO publishes
+        odometry_history: 50                             # odometry messages kept to find the one of a cloud
+        cloud_queue: 10                                  # clouds waiting for their odometry; one more drops the oldest
+
+        # Crop, in the level frame. A detector must be trained on clouds cropped the same way.
+        self_filter_radius: 0.4          # [m] around the vertical through the sensor: the robot itself
+        max_range_xy: 21.0               # [m] a little more than the model range (20.48)
+        z_min: -1.2                      # [m] the Airy is 0.47 m above the floor when the robot stands: the floor is at
+        z_max: 2.2                       #     z = -0.47. Model range (about -1.0 .. 2.0) plus 0.2 m
+        intensity_scale: 1.0             # intensity * scale, rounded and saturated to 0..255. The model does not read it

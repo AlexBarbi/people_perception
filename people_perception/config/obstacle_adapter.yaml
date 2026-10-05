@@ -1,0 +1,24 @@
+# obstacle_adapter (block B10 of docs/perception_pipeline.md): the confirmed tracks as obstacles for an
+# Optimistic-Pessimistic MPC: position, radius and the speed the class can reach. Starting values of the document;
+# max_obstacles, the radii and max_speed are for who develops the MPC to settle.
+/**:
+    ros__parameters:
+        tracks_topic: /perception/tracks                 # confirmed tracks only: a false obstacle costs a lot of room
+        odometry_topic: /Odometry                        # where the robot is, in the frame of the tracks
+        obstacles_topic: /perception/dynamic_obstacles
+        markers_topic: /perception/dynamic_obstacles_markers
+        qos_depth: 20
+        odometry_history: 50             # odometry messages kept to find the one of a tracks message
+
+        max_range: 10.0                  # [m] from the robot. Farther than radius + (max_speed + robot speed) * horizon
+                                         # (about 7 m with the values of the paper) an obstacle cannot matter
+        max_obstacles: 4                 # the closest ones. The controller of this workspace has one slot today
+        pedestrian:
+            radius_margin: 0.10          # [m] radius = half the longer side of the box + margin ...
+            radius_min: 0.30             # [m] ... not less than this ...
+            radius_max: 0.50             # [m] ... nor more
+            max_speed: 1.5               # [m/s] whatever the estimated velocity: who stands can start walking
+
+        marker_horizon: 2.1              # [s] the outer circle is radius + max_speed * this: the longest horizon of
+                                         # the paper (6 phases of 0.35 s)
+        marker_lifetime: 1.0             # [s] the circles go by themselves if the adapter stops

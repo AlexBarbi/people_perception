@@ -1,0 +1,52 @@
+<launch>
+  <!-- People perception on the scans of FAST-LIO (docs/perception_pipeline.md). Included by fast_lio
+       fast_lio_slam_launch.xml (its people argument): do not launch it by hand next to that one.
+
+       people:=false  only dynamic_points_filter, as a pass-through: SC-PGO and TARE read the FAST-LIO scans through it
+                        /cloud_registered       -> /registered_scan_static          (TARE)
+                        /cloud_registered_body  -> /cloud_registered_body_static    (SC-PGO)
+                      They get no scans while it is not running.
+       people:=true   the whole chain, and the filter takes the tracked people out of the two clouds:
+                        /cloud_registered_body + /Odometry -> detector_cloud_adapter -> /perception/detector/pointcloud
+                        -> detector -> /perception/detector/objects -> people_tracker -> /perception/tracks,
+                        /perception/tracks_all, /perception/tracks_markers -> dynamic_points_filter
+                        /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
+                        obstacles for an Optimistic-Pessimistic MPC; nothing reads it yet)
+                      detector:=fake is the only detector so far: it places the people of people_script, it does not
+                      see them (scripts/fake_people_detector.py). Scripts in config/:
+                        fake_people_warehouse_actors.yaml  (default) the two actors of the Gazebo warehouse, where
+                                                           Gazebo moves them; needs the robot at its default spawn
+                                                           and FAST-LIO started with the robot standing there
+                        fake_people_example.yaml           invented people, 4 m ahead of where FAST-LIO started -->
+  <arg name="people" default="false" description="Detect and track people and take them out of the scans for SC-PGO and TARE"/>
+  <arg name="detector" default="fake" description="Detector behind the cloud adapter: fake (people from people_script)"/>
+  <arg name="people_script" default="$(find-pkg-share people_perception)/config/fake_people_warehouse_actors.yaml"
+       description="Script file of detector:=fake"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <let name="config" value="$(find-pkg-share people_perception)/config"/>
+
+  <node pkg="people_perception" exec="dynamic_points_filter" name="dynamic_points_filter" output="screen">
+    <param from="$(var config)/dynamic_points_filter.yaml"/>
+    <param name="enabled" value="$(var people)"/>
+  </node>
+
+  <group if="$(var people)">
+    <node pkg="people_perception" exec="detector_cloud_adapter" name="detector_cloud_adapter" output="screen">
+      <param from="$(var config)/detector_cloud_adapter.yaml"/>
+    </node>
+    <node pkg="people_perception" exec="people_tracker" name="people_tracker" output="screen">
+      <param from="$(var config)/people_tracker.yaml"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+    <node pkg="people_perception" exec="obstacle_adapter" name="obstacle_adapter" output="screen">
+      <param from="$(var config)/obstacle_adapter.yaml"/>
+    </node>
+    <node if="$(eval '\'$(var detector)\' == \'fake\'')" pkg="people_perception" exec="fake_people_detector.py"
+          name="fake_people_detector" output="screen">
+      <param from="$(var config)/fake_people_detector.yaml"/>
+      <param name="script_file" value="$(var people_script)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+  </group>
+</launch>

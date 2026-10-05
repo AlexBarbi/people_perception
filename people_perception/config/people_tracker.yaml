@@ -1,0 +1,31 @@
+# people_tracker (block B5 of docs/perception_pipeline.md): identity and velocity of the people the detector sees.
+# Starting values of the document, to be tuned on recorded data.
+/**:
+    ros__parameters:
+        detections_topic: /perception/detector/objects   # frame sensor_level
+        tracks_topic: /perception/tracks                 # confirmed tracks: the obstacles of the planner
+        tracks_all_topic: /perception/tracks_all         # confirmed, tentative and coasting: what the filter removes
+        markers_topic: /perception/tracks_markers
+        odom_frame: camera_init          # the tracks live here: it drifts but never jumps (not the SC-PGO frame)
+        tf_timeout: 0.05                 # [s] wait for the TF odom_frame <- frame of the detections at their stamp
+        qos_depth: 20
+
+        gate_distance: 1.0               # [m] farthest a detection can be from where a track is expected
+        max_plausible_speed: 5.0         # [m/s] a detection that far from the last one of a track is someone else.
+                                         # 4.0 in the document; the actors of the Gazebo warehouse leave the ends
+                                         # of their lanes at 4.5 m/s and got a new identity at every turn
+        min_score_new_track: 0.25        # low on purpose: the filter has to take the points out early
+        min_score_confirm: 0.40          # mean score a track needs to be confirmed
+        min_hits: 3                      # detections ...
+        hits_window: 5                   # ... in this many scans, to be confirmed
+        max_age: 1.0                     # [s] without a detection before a track is dropped
+        stationary_speed: 0.2            # [m/s] below: stationary
+        stationary_hysteresis: 0.1       # [m/s] a stationary track is moving again above speed + hysteresis
+        shape_smoothing: 0.2             # weight of a new detection in the height, size and heading of the box
+
+        # Kalman filter (position and velocity on the plane, constant velocity)
+        process_noise_acceleration: 1.5  # [m/s^2] how hard a person changes velocity
+        measurement_noise_position: 0.1  # [m] of a detection
+        initial_speed_std: 2.0           # [m/s] of a new track, whose velocity is not known
+
+        backward_jump_reset: 2.0         # [s] a stamp this much before the last one is a restarted bag: all tracks go
