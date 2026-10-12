@@ -5,13 +5,14 @@
 // the stamp of the message, updates the tracks and publishes, with that stamp and in odom_frame:
 //   tracks_topic       autoware_perception_msgs/TrackedObjects   the confirmed tracks, for the obstacle adapter
 //   tracks_all_topic   autoware_perception_msgs/TrackedObjects   confirmed, tentative and coasting, for the filter
-//   markers_topic      visualization_msgs/MarkerArray            box, short id and speed, velocity arrow
+//   markers_topic      visualization_msgs/MarkerArray            box, speed, velocity arrow
 // one message each per message received, an empty one included: the filter takes it as "this scan is done". A message
 // whose TF does not come, or that is not after the last one, is dropped.
 //
-// In a TrackedObject: pose and box centre in odom_frame; twist.linear is the velocity in odom_frame too (not in the
-// frame of the object as Autoware has it); the x y blocks of the pose and twist covariances are those of the Kalman
-// filter, the filter widens its cylinders with them. Every parameter is in config/people_tracker.yaml.
+// In a TrackedObject: object_id is left empty, the tracks carry no identity; pose and box centre in odom_frame;
+// twist.linear is the velocity in odom_frame too (not in the frame of the object as Autoware has it); the x y blocks
+// of the pose and twist covariances are those of the Kalman filter, the filter widens its cylinders with them. Every
+// parameter is in config/people_tracker.yaml.
 
 #include <memory>
 #include <string>

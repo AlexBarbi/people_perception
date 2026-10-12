@@ -97,7 +97,7 @@ def main():
         for topic in TRACKS:
             node.create_subscription(
                 TrackedObjects, topic,
-                keep(topic, lambda msg: (msg.header.frame_id, {bytes(o.object_id.uuid) for o in msg.objects})), 20)
+                keep(topic, lambda msg: (msg.header.frame_id, len(msg.objects))), 20)
 
     reference = PAIRS['registered'][0]
     deadline = time.monotonic() + args.timeout
@@ -182,12 +182,11 @@ def main():
         cloud_frame = seen[reference][scans[-1]][0][0][0]
         unanswered = {topic: [stamp for stamp in scans if stamp not in seen[topic]] for topic in TRACKS}
         frames = {seen[topic][stamp][0][0] for topic in TRACKS for stamp in scans if stamp in seen[topic]}
-        people = [len(seen[TRACKS[1]][stamp][0][1]) for stamp in scans if stamp in seen[TRACKS[1]]]
-        ids = set().union(*(seen[TRACKS[1]][stamp][0][1] for stamp in scans if stamp in seen[TRACKS[1]]))
+        people = [seen[TRACKS[1]][stamp][0][1] for stamp in scans if stamp in seen[TRACKS[1]]]
         results.append(('tracks', not any(unanswered.values()) and frames == {cloud_frame},
                         f'{len(unanswered[TRACKS[0]])} scans without {TRACKS[0]}, {len(unanswered[TRACKS[1]])} without '
                         f'{TRACKS[1]}; frame {", ".join(sorted(frames))}; confirmed people in a scan: '
-                        f'{min(people, default=0)} to {max(people, default=0)}, {len(ids)} identities in all'))
+                        f'{min(people, default=0)} to {max(people, default=0)}'))
 
     for name, ok, detail in results:
         print(f'{"PASS" if ok else "FAIL"} {name}: {detail}')

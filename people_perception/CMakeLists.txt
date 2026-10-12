@@ -91,10 +91,8 @@ if(BUILD_TESTING)
     )
   endforeach()
 
-  # The trajectories of the fake detector
-  find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(test_fake_people_script test/test_fake_people_script.py)
   # The dataset export, on bags written by the test
+  find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_export_detector_dataset test/test_export_detector_dataset.py)
 endif()
 
@@ -106,7 +104,7 @@ install(TARGETS ${node_executables}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(PROGRAMS scripts/fake_people_detector.py scripts/export_detector_dataset.py
+install(PROGRAMS scripts/export_detector_dataset.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

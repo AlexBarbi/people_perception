@@ -33,11 +33,10 @@ namespace {
 // The values of config/obstacle_adapter.yaml.
 const ObstacleParams kShipped{10.0, 4, 0.30, 0.50, 0.10, 1.5};
 
-// A confirmed person as people_tracker reports them; `tag` ends up in the first byte of the id.
-TrackedObject makeTrack(double x, double y, uint8_t tag = 1, double length = 0.5, double width = 0.3,
-                        double vx = 0.0, double vy = 0.0, bool stationary = true) {
+// A confirmed person as people_tracker reports them.
+TrackedObject makeTrack(double x, double y, double length = 0.5, double width = 0.3, double vx = 0.0, double vy = 0.0,
+                        bool stationary = true) {
   TrackedObject track;
-  track.object_id.uuid[0] = tag;
   track.existence_probability = 0.8F;
   ObjectClassification classification;
   classification.label = ObjectClassification::PEDESTRIAN;
@@ -69,13 +68,12 @@ TrackedObjects makeTracks(const std::vector<TrackedObject>& objects, int32_t sec
 
 // Opti-Pessi keeps away from a person who is not moving too: they can start walking at any time.
 TEST(ToObstacles, StandingPersonIsAnObstacleWithTheSpeedOfItsClass) {
-  const TrackedObjects tracks = makeTracks({makeTrack(3.0, 1.0, 7)});
+  const TrackedObjects tracks = makeTracks({makeTrack(3.0, 1.0)});
   const DynamicObstacleArray out = toObstacles(tracks, Eigen::Vector2d::Zero(), kShipped);
 
   EXPECT_EQ(out.header, tracks.header);
   ASSERT_EQ(out.obstacles.size(), 1u);
   const DynamicObstacle& person = out.obstacles.front();
-  EXPECT_EQ(person.id.uuid[0], 7);
   EXPECT_EQ(person.label, ObjectClassification::PEDESTRIAN);
   EXPECT_DOUBLE_EQ(person.position.x, 3.0);
   EXPECT_DOUBLE_EQ(person.position.y, 1.0);
@@ -88,19 +86,17 @@ TEST(ToObstacles, StandingPersonIsAnObstacleWithTheSpeedOfItsClass) {
 
 TEST(ToObstacles, MaxSpeedIsTheOneOfTheClassWhateverTheEstimatedVelocity) {
   const DynamicObstacleArray out =
-      toObstacles(makeTracks({makeTrack(3.0, 1.0, 1, 0.5, 0.3, 3.0, -0.5, false)}), Eigen::Vector2d::Zero(), kShipped);
+      toObstacles(makeTracks({makeTrack(3.0, 1.0, 0.5, 0.3, 3.0, -0.5, false)}), Eigen::Vector2d::Zero(), kShipped);
   ASSERT_EQ(out.obstacles.size(), 1u);
   EXPECT_FLOAT_EQ(out.obstacles.front().max_speed, 1.5F);
   EXPECT_FALSE(out.obstacles.front().is_stationary);
-  EXPECT_DOUBLE_EQ(out.obstacles.front().velocity.x, 3.0);  // for information only
-  EXPECT_DOUBLE_EQ(out.obstacles.front().velocity.y, -0.5);
 }
 
 TEST(ToObstacles, RadiusIsHalfTheLongerSidePlusTheMarginWithinItsLimits) {
   const DynamicObstacleArray out = toObstacles(
-      makeTracks({makeTrack(1.0, 0.0, 1, 0.3, 0.5),    // longer side is the width: 0.25 + 0.10
-                  makeTrack(2.0, 0.0, 2, 0.2, 0.2),    // 0.10 + 0.10: not less than radius_min
-                  makeTrack(3.0, 0.0, 3, 1.2, 0.4)}),  // 0.60 + 0.10: not more than radius_max
+      makeTracks({makeTrack(1.0, 0.0, 0.3, 0.5),    // longer side is the width: 0.25 + 0.10
+                  makeTrack(2.0, 0.0, 0.2, 0.2),    // 0.10 + 0.10: not less than radius_min
+                  makeTrack(3.0, 0.0, 1.2, 0.4)}),  // 0.60 + 0.10: not more than radius_max
       Eigen::Vector2d::Zero(), kShipped);
   ASSERT_EQ(out.obstacles.size(), 3u);
   EXPECT_FLOAT_EQ(out.obstacles[0].radius, 0.35F);
@@ -109,22 +105,25 @@ TEST(ToObstacles, RadiusIsHalfTheLongerSidePlusTheMarginWithinItsLimits) {
 }
 
 TEST(ToObstacles, ClosestFirstAndNoMoreThanMaxObstacles) {
-  // Robot at (10, 0); the tag of each person is its rank by distance
+  // Robot at (10, 0): the people are 5, 1, 6, 3, 1.8 and 9 m from it
   const DynamicObstacleArray out = toObstacles(
-      makeTracks({makeTrack(15.0, 0.0, 4), makeTrack(10.0, 1.0, 1), makeTrack(10.0, -6.0, 5), makeTrack(7.0, 0.0, 3),
-                  makeTrack(11.0, 1.5, 2), makeTrack(10.0, 9.0, 6)}),
+      makeTracks({makeTrack(15.0, 0.0), makeTrack(10.0, 1.0), makeTrack(10.0, -6.0), makeTrack(7.0, 0.0),
+                  makeTrack(11.0, 1.5), makeTrack(10.0, 9.0)}),
       Eigen::Vector2d(10.0, 0.0), kShipped);
   ASSERT_EQ(out.obstacles.size(), 4u);
+  const std::array<Eigen::Vector2d, 4> closest_first{Eigen::Vector2d(10.0, 1.0), Eigen::Vector2d(11.0, 1.5),
+                                                     Eigen::Vector2d(7.0, 0.0), Eigen::Vector2d(15.0, 0.0)};
   for (size_t i = 0; i < 4; ++i) {
-    EXPECT_EQ(out.obstacles[i].id.uuid[0], i + 1) << "place " << i;
+    EXPECT_DOUBLE_EQ(out.obstacles[i].position.x, closest_first[i].x()) << "place " << i;
+    EXPECT_DOUBLE_EQ(out.obstacles[i].position.y, closest_first[i].y()) << "place " << i;
   }
 }
 
 TEST(ToObstacles, PeopleBeyondMaxRangeAreLeftOut) {
-  const DynamicObstacleArray out = toObstacles(makeTracks({makeTrack(20.5, 0.0, 1), makeTrack(19.5, 0.0, 2)}),
+  const DynamicObstacleArray out = toObstacles(makeTracks({makeTrack(20.5, 0.0), makeTrack(19.5, 0.0)}),
                                                Eigen::Vector2d(10.0, 0.0), kShipped);
   ASSERT_EQ(out.obstacles.size(), 1u);
-  EXPECT_EQ(out.obstacles.front().id.uuid[0], 2);
+  EXPECT_DOUBLE_EQ(out.obstacles.front().position.x, 19.5);
 }
 
 TEST(ToObstacles, NobodyGivesAnEmptyListWithTheHeaderOfTheTracks) {
@@ -163,7 +162,7 @@ class ObstacleAdapterTest : public test::RosTest {
 TEST_F(ObstacleAdapterTest, PeopleAroundTheRobotComeOutAtTheStampOfTheirTracks) {
   odometry_->publish(makeOdometry(10, 699999999, Eigen::Vector3d(10.0, 0.0, 0.0)));
   spinFor(100ms);
-  tracks_->publish(makeTracks({makeTrack(25.0, 0.0, 2), makeTrack(12.0, 0.0, 1)}));  // 15 m and 2 m from the robot
+  tracks_->publish(makeTracks({makeTrack(25.0, 0.0), makeTrack(12.0, 0.0)}));  // 15 m and 2 m from the robot
 
   ASSERT_TRUE(spinUntil([&] { return !obstacles_->empty(); }));
   const DynamicObstacleArray& out = obstacles_->front();
@@ -171,7 +170,7 @@ TEST_F(ObstacleAdapterTest, PeopleAroundTheRobotComeOutAtTheStampOfTheirTracks) 
   EXPECT_EQ(out.header.stamp.sec, 10);
   EXPECT_EQ(out.header.stamp.nanosec, 699999999u);
   ASSERT_EQ(out.obstacles.size(), 1u);
-  EXPECT_EQ(out.obstacles.front().id.uuid[0], 1);
+  EXPECT_DOUBLE_EQ(out.obstacles.front().position.x, 12.0);
 }
 
 // The consumer tells a perception that stopped from a scene without people by the messages still coming.

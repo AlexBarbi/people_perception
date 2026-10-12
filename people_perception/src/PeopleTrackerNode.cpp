@@ -40,7 +40,6 @@ geometry_msgs::msg::Quaternion yawQuaternion(double yaw) {
 
 TrackedObject toMessage(const Track& track) {
   TrackedObject object;
-  object.object_id.uuid = track.id;
   object.existence_probability = static_cast<float>(track.score);
   ObjectClassification classification;
   classification.label = ObjectClassification::PEDESTRIAN;
@@ -177,7 +176,7 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
 
     Marker label;
     label.header = all.header;
-    label.ns = "id";
+    label.ns = "speed";
     label.id = id;
     label.type = Marker::TEXT_VIEW_FACING;
     label.pose.position = box.pose.position;
@@ -186,7 +185,7 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     label.scale.z = 0.25;
     label.color.r = label.color.g = label.color.b = label.color.a = 1.0F;
     char text[32];
-    std::snprintf(text, sizeof(text), "%02x%02x %.1f m/s", track.id[0], track.id[1], track.velocity().norm());
+    std::snprintf(text, sizeof(text), "%.1f m/s", track.velocity().norm());
     label.text = text;
     label.lifetime = box.lifetime;
     markers.markers.push_back(label);

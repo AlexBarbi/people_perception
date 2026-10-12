@@ -28,8 +28,8 @@
   <depend>visualization_msgs</depend>
 
   <exec_depend>autoware_lidar_centerpoint</exec_depend>
+  <exec_depend>legged_controllers</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>rosbag2_py</exec_depend>
   <exec_depend>rosidl_runtime_py</exec_depend>

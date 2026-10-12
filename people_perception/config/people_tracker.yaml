@@ -1,4 +1,4 @@
-# people_tracker (block B5 of docs/perception_pipeline.md): identity and velocity of the people the detector sees.
+# people_tracker (block B5 of docs/perception_pipeline.md): the people the detector sees, followed from scan to scan.
 # Starting values of the document, to be tuned on recorded data.
 /**:
     ros__parameters:
@@ -13,7 +13,7 @@
         gate_distance: 1.0               # [m] farthest a detection can be from where a track is expected
         max_plausible_speed: 5.0         # [m/s] a detection that far from the last one of a track is someone else.
                                          # 4.0 in the document; the actors of the Gazebo warehouse leave the ends
-                                         # of their lanes at 4.5 m/s and got a new identity at every turn
+                                         # of their lanes at 4.5 m/s and started a new track at every turn
         min_score_new_track: 0.25        # low on purpose: the filter has to take the points out early
         min_score_confirm: 0.40          # mean score a track needs to be confirmed
         min_hits: 3                      # detections ...

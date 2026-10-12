@@ -104,21 +104,23 @@ TEST(PeopleTracker, LowMeanScoreStaysTentative) {
   EXPECT_FALSE(tracker.tracks().front().confirmed);
 }
 
-TEST(PeopleTracker, IdentitySurvivesAHalfSecondGap) {
+// The tracks carry no identity. A track that lived on is told from one that replaced it by its count of detections:
+// it only grows, and a new track starts at 1.
+TEST(PeopleTracker, TrackSurvivesAHalfSecondGap) {
   PeopleTracker tracker(shippedParams());
   const auto walk = [](double t) { return Eigen::Vector2d(1.2 * t, 2.0); };
   see(tracker, 0, 15, walk);
   ASSERT_EQ(confirmed(tracker).size(), 1u);
-  const Track::Id id = confirmed(tracker).front()->id;
+  EXPECT_EQ(confirmed(tracker).front()->detections, 16);
 
   seeNobody(tracker, 16, 20);  // 0.5 s without a detection
   ASSERT_EQ(tracker.tracks().size(), 1u);
-  EXPECT_EQ(tracker.tracks().front().id, id);
+  EXPECT_EQ(tracker.tracks().front().detections, 16);
   EXPECT_NEAR(tracker.tracks().front().time_since_update, 0.5, 1e-6);
 
   see(tracker, 21, 30, walk);
   ASSERT_EQ(tracker.tracks().size(), 1u) << "the person came back as another track";
-  EXPECT_EQ(tracker.tracks().front().id, id);
+  EXPECT_EQ(tracker.tracks().front().detections, 26) << "the person came back as another track";
   EXPECT_TRUE(tracker.tracks().front().confirmed);
   EXPECT_DOUBLE_EQ(tracker.tracks().front().time_since_update, 0.0);
 }
@@ -149,23 +151,18 @@ TEST(PeopleTracker, StandingPersonStaysConfirmedAndStationary) {
   PeopleTracker tracker(shippedParams());
   std::mt19937 random(3);
   std::normal_distribution<double> noise(0.0, 0.03);
-  Track::Id id{};
   for (int scan = 0; scan <= 100; ++scan) {
     tracker.update(scan * kScan, {person(2.0 + noise(random), -1.5 + noise(random))});
-    if (scan == 10) {
-      ASSERT_EQ(confirmed(tracker).size(), 1u);
-      id = confirmed(tracker).front()->id;
-    }
     if (scan >= 10) {
       ASSERT_EQ(tracker.tracks().size(), 1u) << "scan " << scan;
-      EXPECT_EQ(tracker.tracks().front().id, id) << "scan " << scan;
+      EXPECT_EQ(tracker.tracks().front().detections, scan + 1) << "another track at scan " << scan;
       EXPECT_TRUE(tracker.tracks().front().confirmed) << "scan " << scan;
       EXPECT_TRUE(tracker.tracks().front().stationary) << "scan " << scan;
     }
   }
 }
 
-TEST(PeopleTracker, WalkStopWalkKeepsTheIdentity) {
+TEST(PeopleTracker, WalkStopWalkKeepsTheTrack) {
   PeopleTracker tracker(shippedParams());
   // 3 s at 1.2 m/s, 10 s standing, 3 s at 1.2 m/s
   const auto path = [](double t) {
@@ -174,18 +171,17 @@ TEST(PeopleTracker, WalkStopWalkKeepsTheIdentity) {
   };
   see(tracker, 0, 30, path);
   ASSERT_EQ(confirmed(tracker).size(), 1u);
-  const Track::Id id = confirmed(tracker).front()->id;
   EXPECT_FALSE(confirmed(tracker).front()->stationary);
 
   see(tracker, 31, 130, path);
   ASSERT_EQ(tracker.tracks().size(), 1u);
-  EXPECT_EQ(tracker.tracks().front().id, id);
+  EXPECT_EQ(tracker.tracks().front().detections, 131);
   EXPECT_TRUE(tracker.tracks().front().stationary);
   EXPECT_TRUE(tracker.tracks().front().confirmed);
 
   see(tracker, 131, 160, path);
   ASSERT_EQ(tracker.tracks().size(), 1u);
-  EXPECT_EQ(tracker.tracks().front().id, id);
+  EXPECT_EQ(tracker.tracks().front().detections, 161);
   EXPECT_FALSE(tracker.tracks().front().stationary);
 }
 
@@ -216,34 +212,37 @@ TEST(PeopleTracker, WalkerSlowingToAShuffleIsStillMoving) {
   }
 }
 
-TEST(PeopleTracker, TwoPeoplePassingEachOtherKeepTheirIdentities) {
+TEST(PeopleTracker, TwoPeoplePassingEachOtherKeepTheirTracks) {
   PeopleTracker tracker(shippedParams());
   // Opposite ways on lanes 0.8 m apart: at the middle each is within the gate of the other's track
   const auto left = [](double t) { return Eigen::Vector2d(-3.0 + 1.2 * t, 0.4); };
   const auto right = [](double t) { return Eigen::Vector2d(3.0 - 1.2 * t, -0.4); };
-  Track::Id left_id{};
+  size_t left_track = 0;  // its place in tracks(), which keep the order they started in
   for (int scan = 0; scan <= 50; ++scan) {
     const double t = scan * kScan;
     const Detection a = person(left(t).x(), left(t).y());
     const Detection b = person(right(t).x(), right(t).y());
     tracker.update(t, scan % 2 ? std::vector<Detection>{a, b} : std::vector<Detection>{b, a});
     if (scan == 5) {
+      ASSERT_EQ(tracker.tracks().size(), 2u);
       ASSERT_EQ(confirmed(tracker).size(), 2u);
-      left_id = (confirmed(tracker)[0]->position().y() > 0 ? confirmed(tracker)[0] : confirmed(tracker)[1])->id;
+      left_track = tracker.tracks()[0].position().y() > 0 ? 0 : 1;
     }
   }
   ASSERT_EQ(tracker.tracks().size(), 2u);
-  for (const Track& track : tracker.tracks()) {
+  for (size_t i = 0; i < 2; ++i) {
+    const Track& track = tracker.tracks()[i];
     EXPECT_TRUE(track.confirmed);
-    EXPECT_EQ(track.id == left_id, track.position().y() > 0) << "the two tracks swapped people";
-    EXPECT_EQ(track.id == left_id, track.velocity().x() > 0);
+    EXPECT_EQ(track.detections, 51) << "one of the two was lost and started again";
+    EXPECT_EQ(i == left_track, track.position().y() > 0) << "the two tracks swapped people";
+    EXPECT_EQ(i == left_track, track.velocity().x() > 0);
   }
 }
 
 // The actors of the Gazebo warehouse (measured on the lidar, 2026-10-05): Gazebo runs a spline through the waypoints of
 // a scripted actor, and at the one-second turn at each end of its lane the actor does not stop: it leaves the waypoint
-// at 4.5 m/s, swings 1.1 m past it and comes back. With max_plausible_speed 4.0 every turn started a new identity.
-TEST(PeopleTracker, GazeboActorTurningAtTheEndOfItsLaneKeepsItsIdentity) {
+// at 4.5 m/s, swings 1.1 m past it and comes back. With max_plausible_speed 4.0 every turn started a new track.
+TEST(PeopleTracker, GazeboActorTurningAtTheEndOfItsLaneKeepsItsTrack) {
   PeopleTracker tracker(shippedParams());
   const auto ease = [](double u) { return -u * u * u + 1.5 * u * u + 0.5 * u; };
   const auto actor = [&](double t) {
@@ -258,11 +257,10 @@ TEST(PeopleTracker, GazeboActorTurningAtTheEndOfItsLaneKeepsItsIdentity) {
   };
   see(tracker, 0, 10, actor);
   ASSERT_EQ(confirmed(tracker).size(), 1u);
-  const Track::Id id = confirmed(tracker).front()->id;
   for (int scan = 11; scan <= 160; ++scan) {
     see(tracker, scan, scan, actor);
     ASSERT_EQ(tracker.tracks().size(), 1u) << "another track at " << scan * kScan << " s";
-    EXPECT_EQ(tracker.tracks().front().id, id) << "at " << scan * kScan << " s";
+    EXPECT_EQ(tracker.tracks().front().detections, scan + 1) << "another track at " << scan * kScan << " s";
     EXPECT_DOUBLE_EQ(tracker.tracks().front().time_since_update, 0.0);
   }
 }
@@ -270,19 +268,19 @@ TEST(PeopleTracker, GazeboActorTurningAtTheEndOfItsLaneKeepsItsIdentity) {
 TEST(PeopleTracker, DetectionThatWouldNeedAnImplausibleSpeedIsAnotherTrack) {
   PeopleTracker tracker(shippedParams());
   see(tracker, 0, 5, [](double) { return Eigen::Vector2d(0.0, 0.0); });
-  const Track::Id id = confirmed(tracker).front()->id;
+  ASSERT_EQ(confirmed(tracker).size(), 1u);
 
   tracker.update(0.6, {person(0.9, 0.0)});  // 0.9 m in 0.1 s: 9 m/s, inside the 1 m gate
   ASSERT_EQ(tracker.tracks().size(), 2u);
-  for (const Track& track : tracker.tracks()) {
-    if (track.id == id) {
-      EXPECT_NEAR(track.position().x(), 0.0, 0.05);
-      EXPECT_NEAR(track.time_since_update, 0.1, 1e-6);
-    } else {
-      EXPECT_FALSE(track.confirmed);
-      EXPECT_NEAR(track.position().x(), 0.9, 1e-6);
-    }
-  }
+  const Track& old_track = tracker.tracks()[0];  // tracks() keep the order they started in
+  EXPECT_TRUE(old_track.confirmed);
+  EXPECT_EQ(old_track.detections, 6);
+  EXPECT_NEAR(old_track.position().x(), 0.0, 0.05);
+  EXPECT_NEAR(old_track.time_since_update, 0.1, 1e-6);
+  const Track& new_track = tracker.tracks()[1];
+  EXPECT_FALSE(new_track.confirmed);
+  EXPECT_EQ(new_track.detections, 1);
+  EXPECT_NEAR(new_track.position().x(), 0.9, 1e-6);
 }
 
 TEST(PeopleTracker, DetectionBeyondTheGateIsAnotherTrack) {
@@ -301,7 +299,7 @@ TEST(PeopleTracker, ScanNotAfterTheLastOneIsIgnored) {
   EXPECT_FALSE(tracker.update(0.95, {person(5.0, 5.0)}));
   EXPECT_FALSE(tracker.update(1.0, {person(5.0, 5.0)}));
   ASSERT_EQ(tracker.tracks().size(), 1u);
-  EXPECT_EQ(tracker.tracks().front().id, before.id);
+  EXPECT_EQ(tracker.tracks().front().detections, before.detections);
   EXPECT_EQ(tracker.tracks().front().position(), before.position());
 }
 
@@ -310,11 +308,11 @@ TEST(PeopleTracker, ClockGoingBackDropsEveryTrack) {
   for (int scan = 0; scan <= 10; ++scan) {
     tracker.update(100.0 + scan * kScan, {person(0.0, 0.0)});
   }
-  const Track::Id old_id = tracker.tracks().front().id;
+  ASSERT_EQ(tracker.tracks().front().detections, 11);
 
   EXPECT_TRUE(tracker.update(1.0, {person(5.0, 5.0)}));  // the bag started again
   ASSERT_EQ(tracker.tracks().size(), 1u);
-  EXPECT_NE(tracker.tracks().front().id, old_id);
+  EXPECT_EQ(tracker.tracks().front().detections, 1);
   EXPECT_FALSE(tracker.tracks().front().confirmed);
   EXPECT_NEAR(tracker.tracks().front().position().x(), 5.0, 1e-6);
 }

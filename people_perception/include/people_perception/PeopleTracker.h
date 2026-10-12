@@ -8,10 +8,7 @@
 // it, and is dropped after max_age without one. A person who stands still keeps the track as long as the detector
 // sees them.
 
-#include <array>
-#include <cstdint>
 #include <deque>
-#include <random>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -44,9 +41,6 @@ struct TrackerParams {
 };
 
 struct Track {
-  using Id = std::array<uint8_t, 16>;
-
-  Id id{};
   bool confirmed = false;
   double time_since_update = 0.0;  // [s] since a detection matched it; 0: one of the last scan did
   Eigen::Vector4d state = Eigen::Vector4d::Zero();  // x y vx vy
@@ -75,19 +69,18 @@ class PeopleTracker {
   /// stamp more than backward_jump_reset before the last one (a bag started again) drops every track and is taken.
   bool update(double stamp, const std::vector<Detection>& detections);
 
-  /// Confirmed, tentative and coasting tracks, at the stamp of the last scan taken.
+  /// Confirmed, tentative and coasting tracks, at the stamp of the last scan taken, in the order they started.
   const std::vector<Track>& tracks() const { return tracks_; }
 
  private:
   void predict(Track& track, double dt) const;
   void correct(Track& track, const Detection& detection, double stamp) const;
-  Track start(const Detection& detection, double stamp);
+  Track start(const Detection& detection, double stamp) const;
 
   TrackerParams params_;
   std::vector<Track> tracks_;
   bool has_stamp_ = false;
   double stamp_ = 0.0;
-  std::mt19937_64 id_generator_{std::random_device{}()};
 };
 
 }  // namespace people_perception

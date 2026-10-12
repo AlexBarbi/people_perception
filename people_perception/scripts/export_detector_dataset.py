@@ -17,9 +17,9 @@ detector_cloud_adapter while recording.
                                   (x y z yaw, from the TF detector_cloud_adapter publishes with every cloud),
                                   number of points and of labels
 
-The labels come from --objects-topic when the bag has it: the answers of a detector to those same clouds. With the
-fake detector on the Gazebo actors they are the truth of the simulation; with a real model they are a first guess to
-correct by hand. Without that topic there is no labels/ folder: the frames are to be annotated, in the format above.
+The labels come from --objects-topic when the bag has it: the answers of a detector to those same clouds, a first
+guess to correct by hand. Without that topic there is no labels/ folder: the frames are to be annotated, in the format
+above.
 
 A scan is exported when --every-seconds have passed or the sensor has moved --every-meters since the last exported
 one, whichever comes first; with neither option, every scan. A scan whose TF is not in the bag is left out.

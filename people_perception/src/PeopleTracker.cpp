@@ -189,14 +189,8 @@ void PeopleTracker::correct(Track& track, const Detection& detection, double sta
   track.last_detection_stamp = stamp;
 }
 
-Track PeopleTracker::start(const Detection& detection, double stamp) {
+Track PeopleTracker::start(const Detection& detection, double stamp) const {
   Track track;
-  for (size_t i = 0; i < track.id.size(); i += 8) {
-    const uint64_t word = id_generator_();
-    for (size_t byte = 0; byte < 8; ++byte) {
-      track.id[i + byte] = static_cast<uint8_t>(word >> (8 * byte));
-    }
-  }
   track.state << detection.position.x(), detection.position.y(), 0.0, 0.0;
   const double position_variance = params_.measurement_noise_position * params_.measurement_noise_position;
   const double speed_variance = params_.initial_speed_std * params_.initial_speed_std;

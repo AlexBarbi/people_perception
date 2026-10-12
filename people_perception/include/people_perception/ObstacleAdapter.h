@@ -15,9 +15,9 @@
 // max_obstacles closest, closest first. max_speed comes from the class, never from the estimated velocity: a person
 // standing still can start walking.
 //
-// It does not feed the Opti-Pessi controller of this workspace, which reads /opti_pessi/obstacles
-// (legged_controllers/ObstacleArray, frame odom): see RICOGNIZIONE.md. Every parameter is in
-// config/obstacle_adapter.yaml.
+// The Opti-Pessi controller of this workspace reads /opti_pessi/obstacles (legged_controllers/ObstacleArray, frame
+// odom, type and position only): legged_controllers dynamic_obstacles_to_opti_pessi_obstacles.py relays obstacles_topic
+// there. Every parameter is in config/obstacle_adapter.yaml.
 
 #include <cstdint>
 #include <map>

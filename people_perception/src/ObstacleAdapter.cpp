@@ -62,7 +62,6 @@ people_perception_msgs::msg::DynamicObstacleArray toObstacles(
       continue;
     }
     DynamicObstacle obstacle;
-    obstacle.id = track.object_id;
     obstacle.label = ObjectClassification::PEDESTRIAN;
     obstacle.position = position;
     const double half_side = std::max(track.shape.dimensions.x, track.shape.dimensions.y) / 2.0;
@@ -70,7 +69,6 @@ people_perception_msgs::msg::DynamicObstacleArray toObstacles(
         static_cast<float>(std::clamp(half_side + params.radius_margin, params.radius_min, params.radius_max));
     // Of the class, not of the track: the pessimistic branch covers whatever the person may do, standing ones too
     obstacle.max_speed = static_cast<float>(params.max_speed);
-    obstacle.velocity = track.kinematics.twist_with_covariance.twist.linear;
     obstacle.is_stationary = track.kinematics.is_stationary;
     obstacle.confidence = track.existence_probability;
     in_range.emplace_back(distance, obstacle);
