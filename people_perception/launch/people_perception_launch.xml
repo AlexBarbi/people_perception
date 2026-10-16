@@ -3,7 +3,8 @@
        fast_lio_slam_launch.xml (its people argument): do not launch it by hand next to that one.
 
        people:=false  only dynamic_points_filter, as a pass-through: SC-PGO and TARE read the FAST-LIO scans through it
-                        /cloud_registered       -> /registered_scan_static          (TARE)
+                        /cloud_registered       -> /registered_scan_static          (TARE, and the terrain maps
+                                                                                     far_planner builds its graph on)
                         /cloud_registered_body  -> /cloud_registered_body_static    (SC-PGO)
                       They get no scans while it is not running.
        people:=true   the whole chain, and the filter takes the tracked people out of the two clouds:
@@ -13,7 +14,7 @@
                         -> dynamic_points_filter
                         /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
                         obstacles for an Optimistic-Pessimistic MPC, frame camera_init)
-                        -> legged_controllers dynamic_obstacles_to_opti_pessi_obstacles.py -> /opti_pessi/obstacles
+                        -> dynamic_obstacles_to_opti_pessi_obstacles.py -> /opti_pessi/obstacles
                         (frame odom, what OptiPessiController reads; needs the odom -> lio_map TF of
                         lio_odom_alignment.py, which explore_warehouse_launch.xml starts). opti_pessi_obstacles:=false
                         leaves that topic to another publisher, as the camera detector yolo26_rgbd_detect: every
@@ -45,7 +46,7 @@
     <node pkg="people_perception" exec="obstacle_adapter" name="obstacle_adapter" output="screen">
       <param from="$(var config)/obstacle_adapter.yaml"/>
     </node>
-    <node if="$(var opti_pessi_obstacles)" pkg="legged_controllers" exec="dynamic_obstacles_to_opti_pessi_obstacles.py"
+    <node if="$(var opti_pessi_obstacles)" pkg="people_perception" exec="dynamic_obstacles_to_opti_pessi_obstacles.py"
           name="dynamic_obstacles_to_opti_pessi_obstacles" output="screen">
       <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>

@@ -94,6 +94,9 @@ if(BUILD_TESTING)
   # The dataset export, on bags written by the test
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_export_detector_dataset test/test_export_detector_dataset.py)
+  # The people as the obstacles of the Opti-Pessi controller
+  ament_add_pytest_test(test_dynamic_obstacles_to_opti_pessi_obstacles
+    test/test_dynamic_obstacles_to_opti_pessi_obstacles.py)
 endif()
 
 #############
@@ -105,6 +108,7 @@ install(TARGETS ${node_executables}
 )
 
 install(PROGRAMS scripts/export_detector_dataset.py
+                 scripts/dynamic_obstacles_to_opti_pessi_obstacles.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

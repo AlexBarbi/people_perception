@@ -1,7 +1,9 @@
 # dynamic_points_filter (block B6 of docs/perception_pipeline.md): the scans of FAST-LIO without the points of the
-# tracked people, for what accumulates over time (TARE coverage, SC-PGO keyframes).
-# terrainAnalysis, terrainAnalysisExt and far_planner keep reading /cloud_registered: what avoids collisions must see
-# the people.
+# tracked people, for what accumulates over time (TARE coverage, SC-PGO keyframes, and the visibility graph of
+# far_planner, through terrain maps of its own: tare_planner explore_warehouse_launch.xml and, with people_free,
+# far_planner_launch.xml).
+# terrainAnalysis and terrainAnalysisExt (/terrain_map, /terrain_map_ext) keep reading /cloud_registered: what avoids
+# collisions (TARE's viewpoints, the goal bridge) must see the people.
 /**:
     ros__parameters:
         enabled: false                   # false: every cloud goes out as it came in. true: without the people of

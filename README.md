@@ -52,7 +52,7 @@ For the same reason the filter lets the clouds through unfiltered when the detec
  /perception/dynamic_obstacles                               (camera_init)
               │
               ▼
- dynamic_obstacles_to_opti_pessi_obstacles.py                (in legged_controllers)
+ dynamic_obstacles_to_opti_pessi_obstacles.py                (scripts/)
               │
               ▼
  /opti_pessi/obstacles ─► OptiPessiController                (odom)
@@ -156,7 +156,7 @@ Stands between FAST-LIO and what accumulates its scans.
 
 | Input | Output | Reader |
 |---|---|---|
-| `/cloud_registered` (`camera_init`) | `/registered_scan_static` | TARE |
+| `/cloud_registered` (`camera_init`) | `/registered_scan_static` | TARE; `far_static/terrainAnalysis(Ext)` -> `/terrain_map_static`, `/terrain_map_ext_static` -> far_planner (exploration: the saved graph; inspections: its routes, unless `people_free:=false`) |
 | `/cloud_registered_body` (`rslidar_lio`) | `/cloud_registered_body_static` | SC-PGO |
 | | `/perception/dynamic_points` | what was taken out of `/cloud_registered`, to look at |
 
@@ -192,7 +192,7 @@ The confirmed tracks as what an Optimistic-Pessimistic MPC needs of each person.
 ### Relay to the controller
 
 `OptiPessiController` reads `/opti_pessi/obstacles` (`legged_controllers/ObstacleArray`, frame `odom`). The relay
-`dynamic_obstacles_to_opti_pessi_obstacles.py` lives in `legged_controllers` and is started by this launch with
+`dynamic_obstacles_to_opti_pessi_obstacles.py` (`people_perception/scripts`) is started by this launch with
 `people:=true` unless `opti_pessi_obstacles:=false`.
 
 - It needs the TF `odom -> lio_map -> camera_init`, which `lio_odom_alignment.py` publishes (started by the TARE and

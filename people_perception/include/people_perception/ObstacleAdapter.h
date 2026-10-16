@@ -16,7 +16,7 @@
 // standing still can start walking.
 //
 // The Opti-Pessi controller of this workspace reads /opti_pessi/obstacles (legged_controllers/ObstacleArray, frame
-// odom, type and position only): legged_controllers dynamic_obstacles_to_opti_pessi_obstacles.py relays obstacles_topic
+// odom, type and position only): scripts/dynamic_obstacles_to_opti_pessi_obstacles.py relays obstacles_topic
 // there. Every parameter is in config/obstacle_adapter.yaml.
 
 #include <cstdint>

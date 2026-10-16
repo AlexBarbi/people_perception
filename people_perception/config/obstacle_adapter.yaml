@@ -12,7 +12,8 @@
 
         max_range: 10.0                  # [m] from the robot. Farther than radius + (max_speed + robot speed) * horizon
                                          # (about 7 m with the values of the paper) an obstacle cannot matter
-        max_obstacles: 4                 # the closest ones. The controller of this workspace has one slot today
+        max_obstacles: 4                 # the closest ones. The controller of this workspace has 4 slots
+                                         # (obstacles.numSlots of opti_pessi_interface/config/scenario_live.info)
         pedestrian:
             radius_margin: 0.10          # [m] radius = half the longer side of the box + margin ...
             radius_min: 0.30             # [m] ... not less than this ...
