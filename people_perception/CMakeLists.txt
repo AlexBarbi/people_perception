@@ -97,6 +97,9 @@ if(BUILD_TESTING)
   # The people as the obstacles of the Opti-Pessi controller
   ament_add_pytest_test(test_dynamic_obstacles_to_opti_pessi_obstacles
     test/test_dynamic_obstacles_to_opti_pessi_obstacles.py)
+  # CenterPoint on the CPU: pre/post-processing against the CUDA kernels' definitions (the networks only when the
+  # interpreter has onnxruntime)
+  ament_add_pytest_test(test_centerpoint_cpu test/test_centerpoint_cpu.py)
 endif()
 
 #############
@@ -109,6 +112,7 @@ install(TARGETS ${node_executables}
 
 install(PROGRAMS scripts/export_detector_dataset.py
                  scripts/dynamic_obstacles_to_opti_pessi_obstacles.py
+                 scripts/centerpoint_cpu.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

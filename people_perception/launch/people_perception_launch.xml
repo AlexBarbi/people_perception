@@ -19,8 +19,13 @@
                         lio_odom_alignment.py, which explore_warehouse_launch.xml starts). opti_pessi_obstacles:=false
                         leaves that topic to another publisher, as the camera detector yolo26_rgbd_detect: every
                         message there replaces the obstacles of the previous one, two publishers erase each other.
-                      The detector is autoware_lidar_centerpoint with the model in centerpoint_model: it needs
-                      CUDA and TensorRT. -->
+                      The detector is the CenterPoint model in centerpoint_model, run by
+                        detector:=centerpoint      autoware_lidar_centerpoint: CUDA and TensorRT
+                        detector:=centerpoint_cpu  centerpoint_cpu.py: ONNX Runtime on the CPU, same model, same
+                                                   topics, a smaller area (config/centerpoint_cpu.param.yaml); with
+                                                   the python of a venv that has onnxruntime (python argument) -->
+  <arg name="detector" default="centerpoint" description="centerpoint (TensorRT, needs CUDA) or centerpoint_cpu (ONNX Runtime on the CPU)"/>
+  <arg name="python" default="$(env HOME)/RaNAV/.venv-yolo/bin/python" description="With detector:=centerpoint_cpu: interpreter that has onnxruntime"/>
   <arg name="people" default="false" description="Detect and track people and take them out of the scans for SC-PGO and TARE"/>
   <arg name="centerpoint_model" default="$(env HOME)/RaNAV/models/lidar_centerpoint/v4.1/short_range"
        description="Folder of the CenterPoint model: its two .onnx, ml_package.param.yaml, detection_class_remapper.param.yaml; the TensorRT engines are built there on the first start"/>
@@ -53,11 +58,22 @@
     <!-- The detector. Its engines are built on the first start (minutes; they are not portable between
          machines or TensorRT versions). The pretrained Autoware models were trained on road data: a proof that the
          chain runs, not a people detector for a warehouse. -->
-    <include file="$(find-pkg-share autoware_lidar_centerpoint)/launch/lidar_centerpoint.launch.xml">
+    <include if="$(equals $(var detector) centerpoint)"
+             file="$(find-pkg-share autoware_lidar_centerpoint)/launch/lidar_centerpoint.launch.xml">
       <arg name="input/pointcloud" value="/perception/detector/pointcloud"/>
       <arg name="output/objects" value="/perception/detector/objects"/>
       <arg name="model_path" value="$(var centerpoint_model)"/>
       <arg name="common_param_path" value="$(var config)/centerpoint_common.param.yaml"/>
     </include>
+    <node if="$(equals $(var detector) centerpoint_cpu)" pkg="people_perception" exec="centerpoint_cpu.py"
+          name="lidar_centerpoint" output="screen" launch-prefix="$(var python)">
+      <remap from="~/input/pointcloud" to="/perception/detector/pointcloud"/>
+      <remap from="~/output/objects" to="/perception/detector/objects"/>
+      <param name="model_path" value="$(var centerpoint_model)"/>
+      <param from="$(var centerpoint_model)/ml_package.param.yaml" allow_substs="true"/>
+      <param from="$(var config)/centerpoint_common.param.yaml"/>
+      <param from="$(var config)/centerpoint_cpu.param.yaml"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
   </group>
 </launch>

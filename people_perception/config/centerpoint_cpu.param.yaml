@@ -1,0 +1,18 @@
+# centerpoint_cpu.py (detector:=centerpoint_cpu): what differs from the TensorRT node. It reads the same
+# ml_package.param.yaml (model folder) and centerpoint_common.param.yaml; these come after them.
+/**:
+  ros__parameters:
+    cpu:
+      # Replaces model_params.point_cloud_range. The time follows the grid (0.16 m cells, each side a multiple of
+      # 32 cells = 5.12 m). Measured 2026-10-16 on 300 scans of the empty room (Core Ultra 7 265H, WSL, nothing else
+      # running), whole detection per scan, 4 threads: +-12.8 m (160 x 160) 84 ms median / 100 ms p90,
+      # +-15.36 m 130 ms, +-20.48 m 244 ms; the model's +-51.2 m 1.6 s (8 threads). Against the TensorRT node on the
+      # same scans the pedestrians agree as much at +-12.8 m (81 % of its detections) as at the full range (80 %):
+      # the rest are borderline scores, FP32 here against FP16 there. obstacle_adapter sends people up to 10 m
+      # (max_range); 12.8 m leaves the tracker a few metres to confirm a track before that.
+      point_cloud_range: [-12.8, -12.8, -3.0, 12.8, 12.8, 5.0]
+      # ONNX Runtime threads of each network. Leave cores to the controller and FAST-LIO on the robot computer.
+      num_threads: 4
+      # ONNX Runtime execution providers, in order of preference: CPUExecutionProvider always works;
+      # OpenVINOExecutionProvider (onnxruntime-openvino) runs on Intel CPUs, integrated GPUs and NPUs.
+      providers: ["CPUExecutionProvider"]
