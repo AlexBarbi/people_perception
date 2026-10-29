@@ -23,17 +23,22 @@
                         detector:=centerpoint      autoware_lidar_centerpoint: CUDA and TensorRT
                         detector:=centerpoint_cpu  centerpoint_cpu.py: ONNX Runtime on the CPU, same model, same
                                                    topics, a smaller area (config/centerpoint_cpu.param.yaml); with
-                                                   the python of a venv that has onnxruntime (python argument) -->
-  <arg name="detector" default="centerpoint" description="centerpoint (TensorRT, needs CUDA) or centerpoint_cpu (ONNX Runtime on the CPU)"/>
-  <arg name="python" default="$(env HOME)/RaNAV/.venv-yolo/bin/python" description="With detector:=centerpoint_cpu: interpreter that has onnxruntime"/>
+                                                   the python of a venv that has onnxruntime (python argument)
+                        detector:=auto             the first when autoware_lidar_centerpoint is installed, else the
+                                                   second (a setup_ranav.sh build without CUDA leaves it out)
+       The model and the venv are looked for in the workspace this package is installed from (<ws>/install/..). -->
+  <arg name="detector" default="auto" description="auto (centerpoint when autoware_lidar_centerpoint is installed, else centerpoint_cpu), centerpoint (TensorRT, needs CUDA) or centerpoint_cpu (ONNX Runtime on the CPU)"/>
+  <arg name="python" default="$(find-pkg-prefix people_perception)/../../.venv-yolo/bin/python" description="With detector:=centerpoint_cpu: interpreter that has onnxruntime"/>
   <arg name="people" default="false" description="Detect and track people and take them out of the scans for SC-PGO and TARE"/>
-  <arg name="centerpoint_model" default="$(env HOME)/RaNAV/models/lidar_centerpoint/v4.1/short_range"
+  <arg name="centerpoint_model" default="$(find-pkg-prefix people_perception)/../../models/lidar_centerpoint/v4.1/short_range"
        description="Folder of the CenterPoint model: its two .onnx, ml_package.param.yaml, detection_class_remapper.param.yaml; the TensorRT engines are built there on the first start"/>
   <arg name="opti_pessi_obstacles" default="true"
        description="With people:=true: the tracked people are the obstacles of OptiPessiController (/perception/dynamic_obstacles -> /opti_pessi/obstacles). false when another node publishes /opti_pessi/obstacles"/>
   <arg name="use_sim_time" default="true"/>
 
   <let name="config" value="$(find-pkg-share people_perception)/config"/>
+  <let if="$(equals $(var detector) auto)" name="detector"
+       value="$(eval &quot;'centerpoint' if ament_index_python.has_resource('packages', 'autoware_lidar_centerpoint') else 'centerpoint_cpu'&quot; ament_index_python)"/>
 
   <node pkg="people_perception" exec="dynamic_points_filter" name="dynamic_points_filter" output="screen">
     <param from="$(var config)/dynamic_points_filter.yaml"/>

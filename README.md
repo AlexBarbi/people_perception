@@ -73,12 +73,14 @@ ros2 launch fast_lio fast_lio_slam_launch.xml people:=true
 | Argument | Default | Effect |
 |---|---|---|
 | `people` | `false` | `false`: only `dynamic_points_filter`, as a pass-through. `true`: the whole chain, and the filter removes the tracked people |
-| `centerpoint_model` | `~/RaNAV/models/lidar_centerpoint/v4.1/short_range` | Model folder of the detector |
+| `centerpoint_model` | `models/lidar_centerpoint/v4.1/short_range` of the workspace | Model folder of the detector |
+| `detector` | `auto` | `centerpoint` (TensorRT), `centerpoint_cpu` (ONNX Runtime) or `auto`: `centerpoint` when `autoware_lidar_centerpoint` is installed, else `centerpoint_cpu` |
 | `opti_pessi_obstacles` | `true` | Relay the tracked people to `/opti_pessi/obstacles`. `false` when another node publishes that topic |
 | `use_sim_time` | `true` | |
 
 SC-PGO and TARE read their scans from `dynamic_points_filter` in both modes: **if the filter is not running, neither
-gets any scan.** `people:=true` starts the detector, which needs a GPU with CUDA and TensorRT.
+gets any scan.** `people:=true` starts the detector: with CUDA and TensorRT the Autoware one, without them (not built)
+the same model on the CPU.
 
 ## Nodes
 
