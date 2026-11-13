@@ -31,7 +31,7 @@ using namespace std::chrono_literals;
 namespace {
 
 // The values of config/obstacle_adapter.yaml.
-const ObstacleParams kShipped{10.0, 4, 0.30, 0.50, 0.10, 1.5};
+const ObstacleParams kShipped{15.0, 4, 0.30, 0.50, 0.10, 1.5};
 
 // A confirmed person as people_tracker reports them.
 TrackedObject makeTrack(double x, double y, double length = 0.5, double width = 0.3, double vx = 0.0, double vy = 0.0,
@@ -120,10 +120,10 @@ TEST(ToObstacles, ClosestFirstAndNoMoreThanMaxObstacles) {
 }
 
 TEST(ToObstacles, PeopleBeyondMaxRangeAreLeftOut) {
-  const DynamicObstacleArray out = toObstacles(makeTracks({makeTrack(20.5, 0.0), makeTrack(19.5, 0.0)}),
+  const DynamicObstacleArray out = toObstacles(makeTracks({makeTrack(25.5, 0.0), makeTrack(24.5, 0.0)}),
                                                Eigen::Vector2d(10.0, 0.0), kShipped);
   ASSERT_EQ(out.obstacles.size(), 1u);
-  EXPECT_DOUBLE_EQ(out.obstacles.front().position.x, 19.5);
+  EXPECT_DOUBLE_EQ(out.obstacles.front().position.x, 24.5);
 }
 
 TEST(ToObstacles, NobodyGivesAnEmptyListWithTheHeaderOfTheTracks) {
@@ -162,15 +162,17 @@ class ObstacleAdapterTest : public test::RosTest {
 TEST_F(ObstacleAdapterTest, PeopleAroundTheRobotComeOutAtTheStampOfTheirTracks) {
   odometry_->publish(makeOdometry(10, 699999999, Eigen::Vector3d(10.0, 0.0, 0.0)));
   spinFor(100ms);
-  tracks_->publish(makeTracks({makeTrack(25.0, 0.0), makeTrack(12.0, 0.0)}));  // 15 m and 2 m from the robot
+  // Include the new 15 m boundary and exclude a person beyond the projected scan range.
+  tracks_->publish(makeTracks({makeTrack(26.0, 0.0), makeTrack(25.0, 0.0), makeTrack(12.0, 0.0)}));
 
   ASSERT_TRUE(spinUntil([&] { return !obstacles_->empty(); }));
   const DynamicObstacleArray& out = obstacles_->front();
   EXPECT_EQ(out.header.frame_id, "camera_init");
   EXPECT_EQ(out.header.stamp.sec, 10);
   EXPECT_EQ(out.header.stamp.nanosec, 699999999u);
-  ASSERT_EQ(out.obstacles.size(), 1u);
+  ASSERT_EQ(out.obstacles.size(), 2u);
   EXPECT_DOUBLE_EQ(out.obstacles.front().position.x, 12.0);
+  EXPECT_DOUBLE_EQ(out.obstacles.back().position.x, 25.0);
 }
 
 // The consumer tells a perception that stopped from a scene without people by the messages still coming.

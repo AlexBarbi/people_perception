@@ -100,6 +100,7 @@ if(BUILD_TESTING)
   # CenterPoint on the CPU: pre/post-processing against the CUDA kernels' definitions (the networks only when the
   # interpreter has onnxruntime)
   ament_add_pytest_test(test_centerpoint_cpu test/test_centerpoint_cpu.py)
+  ament_add_pytest_test(test_dr_spaam_cpu test/test_dr_spaam_cpu.py)
 endif()
 
 #############
@@ -113,9 +114,15 @@ install(TARGETS ${node_executables}
 install(PROGRAMS scripts/export_detector_dataset.py
                  scripts/dynamic_obstacles_to_opti_pessi_obstacles.py
                  scripts/centerpoint_cpu.py
+                 scripts/dr_spaam_cpu.py
+                 scripts/export_dr_spaam_onnx.py
+                 scripts/benchmark_dr_spaam.py
+                 scripts/perception_floor_tf.py
   DESTINATION lib/${PROJECT_NAME}
 )
+install(FILES scripts/dr_spaam_inference.py DESTINATION lib/${PROJECT_NAME})
 
+install(FILES DR_SPAAM.md DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )

@@ -27,7 +27,10 @@
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
 
-  <exec_depend>autoware_lidar_centerpoint</exec_depend>
+  <!-- autoware_lidar_centerpoint is optional: only the explicit legacy GPU launch uses it. -->
+  <exec_depend>pointcloud_to_laserscan</exec_depend>
+  <!-- Install ONNX Runtime CPU in the ROS Python environment; see README. -->
+  <exec_depend>python3-onnxruntime-pip</exec_depend>
   <exec_depend>legged_controllers</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>rclpy</exec_depend>

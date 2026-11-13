@@ -10,8 +10,7 @@
         qos_depth: 20
         odometry_history: 50             # odometry messages kept to find the one of a tracks message
 
-        max_range: 10.0                  # [m] from the robot. Farther than radius + (max_speed + robot speed) * horizon
-                                         # (about 7 m with the values of the paper) an obstacle cannot matter
+        max_range: 15.0                  # [m] match the projected scan range; nearest tracks fill controller slots
         max_obstacles: 4                 # the closest ones. The controller of this workspace has 4 slots
                                          # (obstacles.numSlots of opti_pessi_interface/config/scenario_live.info)
         pedestrian:

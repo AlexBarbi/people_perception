@@ -1,0 +1,19 @@
+dr_spaam_cpu:
+  ros__parameters:
+    model_path: ''  # Required: export_dr_spaam_onnx.py official_weights.pth model.onnx
+    scan_topic: /perception/scan
+    objects_topic: /perception/detector/objects
+    expected_frame: base_link
+    confidence_threshold: 0.5
+    nms_distance: 0.5
+    stride: 1
+    num_threads: 4
+    range_min: 0.3
+    range_max: 15.0
+    state_timeout: 0.5
+    # Nominal full-body geometry: used by tracker, obstacle adapter, cloud filter.
+    person_width: 0.6
+    person_depth: 0.6
+    person_height: 1.7
+    ground_z: 0.0
+    latency_budget_ms: 15.0

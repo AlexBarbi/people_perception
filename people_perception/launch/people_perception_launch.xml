@@ -8,8 +8,8 @@
                         /cloud_registered_body  -> /cloud_registered_body_static    (SC-PGO)
                       They get no scans while it is not running.
        people:=true   the whole chain, and the filter takes the tracked people out of the two clouds:
-                        /cloud_registered_body + /Odometry -> detector_cloud_adapter -> /perception/detector/pointcloud
-                        -> autoware_lidar_centerpoint -> /perception/detector/objects -> people_tracker
+                        /rslidar_points -> pointcloud_to_laserscan -> /perception/scan
+                        -> dr_spaam_cpu.py -> /perception/detector/objects -> people_tracker
                         -> /perception/tracks, /perception/tracks_all, /perception/tracks_markers
                         -> dynamic_points_filter
                         /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
@@ -19,13 +19,28 @@
                         lio_odom_alignment.py, which explore_warehouse_launch.xml starts). opti_pessi_obstacles:=false
                         leaves that topic to another publisher, as the camera detector yolo26_rgbd_detect: every
                         message there replaces the obstacles of the previous one, two publishers erase each other.
-                      The detector is the CenterPoint model in centerpoint_model, run by
+                      Optional legacy detectors use detector_cloud_adapter and centerpoint_model:
                         detector:=centerpoint      autoware_lidar_centerpoint: CUDA and TensorRT
                         detector:=centerpoint_cpu  centerpoint_cpu.py: ONNX Runtime on the CPU, same model, same
                                                    topics, a smaller area (config/centerpoint_cpu.param.yaml); with
                                                    the python of a venv that has onnxruntime (python argument) -->
-  <arg name="detector" default="centerpoint" description="centerpoint (TensorRT, needs CUDA) or centerpoint_cpu (ONNX Runtime on the CPU)"/>
-  <arg name="python" default="$(env HOME)/RaNAV/.venv-yolo/bin/python" description="With detector:=centerpoint_cpu: interpreter that has onnxruntime"/>
+  <!-- DR-SPAAM is the CPU default. 'auto' is accepted from the parent FAST-LIO launch.
+       CenterPoint remains an explicit legacy option, with its own optional dependencies. -->
+  <arg name="detector" default="dr_spaam_cpu" description="dr_spaam_cpu or auto: DR-SPAAM CPU; legacy: centerpoint, centerpoint_cpu">
+    <choice value="dr_spaam_cpu"/>
+    <choice value="auto"/>
+    <choice value="centerpoint"/>
+    <choice value="centerpoint_cpu"/>
+  </arg>
+  <arg name="python" default="/usr/bin/python3" description="ROS-compatible interpreter with numpy and onnxruntime"/>
+  <arg name="dr_spaam_model" default="$(env HOME)/RaNAV/models/dr_spaam/dr_spaam.onnx"/>
+  <arg name="lidar_topic" default="/rslidar_points"/>
+  <arg name="scan_topic" default="/perception/scan"/>
+  <arg name="scan_frame" default="base_link" description="Floor-level robot frame, with calibrated TF from LiDAR and to camera_init"/>
+  <arg name="scan_angle_min" default="-1.9198621771937625"/>
+  <arg name="scan_angle_max" default="1.9198621771937625"/>
+  <arg name="dr_spaam_stride" default="1" description="Must match export --stride"/>
+  <arg name="dr_spaam_threads" default="4" description="ONNX Runtime intra-op CPU threads"/>
   <arg name="people" default="false" description="Detect and track people and take them out of the scans for SC-PGO and TARE"/>
   <arg name="centerpoint_model" default="$(env HOME)/RaNAV/models/lidar_centerpoint/v4.1/short_range"
        description="Folder of the CenterPoint model: its two .onnx, ml_package.param.yaml, detection_class_remapper.param.yaml; the TensorRT engines are built there on the first start"/>
@@ -41,15 +56,39 @@
   </node>
 
   <group if="$(var people)">
-    <node pkg="people_perception" exec="detector_cloud_adapter" name="detector_cloud_adapter" output="screen">
+    <node if="$(eval &quot;'$(var detector)' in ['centerpoint', 'centerpoint_cpu']&quot;)"
+          pkg="people_perception" exec="detector_cloud_adapter" name="detector_cloud_adapter" output="screen">
       <param from="$(var config)/detector_cloud_adapter.yaml"/>
     </node>
+    <group if="$(eval &quot;'$(var detector)' in ['dr_spaam_cpu', 'auto']&quot;)">
+      <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node"
+            name="pointcloud_to_laserscan" output="screen">
+        <param from="$(var config)/pointcloud_to_laserscan.yaml"/>
+        <param name="target_frame" value="$(var scan_frame)"/>
+        <param name="angle_min" value="$(var scan_angle_min)"/>
+        <param name="angle_max" value="$(var scan_angle_max)"/>
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+        <remap from="cloud_in" to="$(var lidar_topic)"/>
+        <remap from="scan" to="$(var scan_topic)"/>
+      </node>
+      <node pkg="people_perception" exec="dr_spaam_cpu.py" name="dr_spaam_cpu"
+            output="screen" launch-prefix="$(var python)">
+        <param from="$(var config)/dr_spaam_cpu.yaml"/>
+        <param name="model_path" value="$(var dr_spaam_model)"/>
+        <param name="scan_topic" value="$(var scan_topic)"/>
+        <param name="expected_frame" value="$(var scan_frame)"/>
+        <param name="stride" value="$(var dr_spaam_stride)"/>
+        <param name="num_threads" value="$(var dr_spaam_threads)"/>
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+      </node>
+    </group>
     <node pkg="people_perception" exec="people_tracker" name="people_tracker" output="screen">
       <param from="$(var config)/people_tracker.yaml"/>
       <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
     <node pkg="people_perception" exec="obstacle_adapter" name="obstacle_adapter" output="screen">
       <param from="$(var config)/obstacle_adapter.yaml"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
     <node if="$(var opti_pessi_obstacles)" pkg="people_perception" exec="dynamic_obstacles_to_opti_pessi_obstacles.py"
           name="dynamic_obstacles_to_opti_pessi_obstacles" output="screen">

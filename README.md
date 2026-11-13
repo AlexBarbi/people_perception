@@ -1,5 +1,9 @@
 # people_perception
 
+The default detector is now DR-SPAAM on CPU (`detector:=dr_spaam_cpu` or `auto`).
+See [DR-SPAAM setup, export, TF and measured performance](people_perception/DR_SPAAM.md)
+for the current pipeline. The CenterPoint sections below describe the optional legacy detector.
+
 People detection and tracking on the lidar scans of FAST-LIO, for a quadruped that explores a warehouse with a
 RoboSense Airy. It does three things with the people it tracks:
 

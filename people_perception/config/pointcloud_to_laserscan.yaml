@@ -1,0 +1,17 @@
+pointcloud_to_laserscan:
+  ros__parameters:
+    # base_link must have its origin at floor level. Height is evaluated AFTER TF.
+    # Supply calibrated base_link <- LiDAR TF, including real mounting height.
+    target_frame: base_link
+    transform_tolerance: 0.05
+    min_height: 0.75
+    max_height: 1.05
+    # Front aisle sector +/-110 degrees. Use +/-pi for full coverage.
+    angle_min: -1.9198621771937625
+    angle_max: 1.9198621771937625
+    angle_increment: 0.00785
+    scan_time: 0.1
+    range_min: 0.3
+    range_max: 15.0
+    use_inf: true
+    queue_size: 1
