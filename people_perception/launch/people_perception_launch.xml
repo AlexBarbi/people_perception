@@ -1,6 +1,6 @@
 <launch>
-  <!-- People perception on the scans of FAST-LIO (docs/perception_pipeline.md). Included by fast_lio
-       fast_lio_slam_launch.xml (its people argument): do not launch it by hand next to that one.
+  <!-- People perception on the scans of FAST-LIO. Included by ranav_bringup fast_lio_slam_launch.xml (its people
+       argument): do not launch it by hand next to that one.
 
        people:=false  only dynamic_points_filter, as a pass-through: SC-PGO and TARE read the FAST-LIO scans through it
                         /cloud_registered       -> /registered_scan_static          (TARE, and the terrain maps
@@ -9,16 +9,13 @@
                       They get no scans while it is not running.
        people:=true   the whole chain, and the filter takes the tracked people out of the two clouds:
                         /cloud_registered_body + /Odometry -> detector_cloud_adapter -> /perception/detector/pointcloud
-                        -> autoware_lidar_centerpoint -> /perception/detector/objects -> people_tracker
-                        -> /perception/tracks, /perception/tracks_all, /perception/tracks_markers
-                        -> dynamic_points_filter
-                        /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
-                        obstacles for an Optimistic-Pessimistic MPC, frame camera_init)
-                        -> dynamic_obstacles_to_opti_pessi_obstacles.py -> /opti_pessi/obstacles
-                        (frame odom, what OptiPessiController reads; needs the odom -> lio_map TF that FAST-LIO
-                        publishes while the legged estimator's /odom runs). opti_pessi_obstacles:=false
-                        leaves that topic to another publisher, as the camera detector yolo26_rgbd_detect: every
-                        message there replaces the obstacles of the previous one, two publishers erase each other.
+                        -> detector -> /perception/detector/objects -> people_tracker
+                        -> /perception/tracks, /perception/tracks_markers -> dynamic_points_filter
+                      and people_tracker hands the confirmed people to OptiPessiController on /opti_pessi/obstacles
+                        (frame odom; needs the odom -> lio_map TF that FAST-LIO publishes while the legged
+                        estimator's /odom runs). opti_pessi_obstacles:=false leaves that topic to another publisher,
+                        as the camera detector yolo26_rgbd_detect: every message there replaces the obstacles of the
+                        previous one, two publishers erase each other.
                       The detector is the CenterPoint model in centerpoint_model, run by
                         detector:=centerpoint      autoware_lidar_centerpoint: CUDA and TensorRT
                         detector:=centerpoint_cpu  centerpoint_cpu.py: ONNX Runtime on the CPU, same model, same
@@ -33,7 +30,7 @@
   <arg name="centerpoint_model" default="$(find-pkg-prefix people_perception)/../../models/lidar_centerpoint/v4.1/short_range"
        description="Folder of the CenterPoint model: its two .onnx, ml_package.param.yaml, detection_class_remapper.param.yaml; the TensorRT engines are built there on the first start"/>
   <arg name="opti_pessi_obstacles" default="true"
-       description="With people:=true: the tracked people are the obstacles of OptiPessiController (/perception/dynamic_obstacles -> /opti_pessi/obstacles). false when another node publishes /opti_pessi/obstacles"/>
+       description="With people:=true: the confirmed people are the obstacles of OptiPessiController (/opti_pessi/obstacles). false when another node publishes that topic"/>
   <arg name="use_sim_time" default="true"/>
 
   <let name="config" value="$(find-pkg-share people_perception)/config"/>
@@ -51,13 +48,7 @@
     </node>
     <node pkg="people_perception" exec="people_tracker" name="people_tracker" output="screen">
       <param from="$(var config)/people_tracker.yaml"/>
-      <param name="use_sim_time" value="$(var use_sim_time)"/>
-    </node>
-    <node pkg="people_perception" exec="obstacle_adapter" name="obstacle_adapter" output="screen">
-      <param from="$(var config)/obstacle_adapter.yaml"/>
-    </node>
-    <node if="$(var opti_pessi_obstacles)" pkg="people_perception" exec="dynamic_obstacles_to_opti_pessi_obstacles.py"
-          name="dynamic_obstacles_to_opti_pessi_obstacles" output="screen">
+      <param name="obstacles.enabled" value="$(var opti_pessi_obstacles)"/>
       <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
     <!-- The detector. Its engines are built on the first start (minutes; they are not portable between

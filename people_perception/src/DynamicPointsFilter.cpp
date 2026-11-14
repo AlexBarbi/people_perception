@@ -8,28 +8,16 @@
 #include <stdexcept>
 #include <utility>
 
+#include "people_perception/CloudLayout.h"
+
 namespace people_perception {
 
 namespace {
-
-int64_t stampOf(const std_msgs::msg::Header& header) { return rclcpp::Time(header.stamp).nanoseconds(); }
 
 // Largest variance along any direction of the plane, from the x y block of a 6 x 6 covariance.
 double largestVariance(const std::array<double, 36>& covariance) {
   const double a = covariance[0], b = covariance[1], d = covariance[7];
   return std::max(0.0, (a + d) / 2.0 + std::sqrt((a - d) * (a - d) / 4.0 + b * b));
-}
-
-// An empty cloud with the header and the layout of `like`.
-std::unique_ptr<sensor_msgs::msg::PointCloud2> emptyLike(const sensor_msgs::msg::PointCloud2& like) {
-  auto cloud = std::make_unique<sensor_msgs::msg::PointCloud2>();
-  cloud->header = like.header;
-  cloud->fields = like.fields;
-  cloud->is_bigendian = like.is_bigendian;
-  cloud->point_step = like.point_step;
-  cloud->is_dense = like.is_dense;
-  cloud->height = 1;
-  return cloud;
 }
 
 }  // namespace
@@ -61,16 +49,6 @@ DynamicPointsFilter::DynamicPointsFilter(const rclcpp::NodeOptions& options)
   max_wait_ = declare_parameter<double>("max_wait");
   max_track_staleness_ = declare_parameter<double>("max_track_staleness");
   queue_size_ = static_cast<size_t>(declare_parameter<int>("queue_size"));
-  const std::string on_timeout = declare_parameter<std::string>("on_timeout");
-  if (on_timeout == "last_tracks") {
-    on_timeout_ = OnTimeout::kLastTracks;
-  } else if (on_timeout == "passthrough") {
-    on_timeout_ = OnTimeout::kPassthrough;
-  } else if (on_timeout == "drop") {
-    on_timeout_ = OnTimeout::kDrop;
-  } else {
-    throw std::invalid_argument("on_timeout: '" + on_timeout + "' is not last_tracks, passthrough or drop");
-  }
 
   diagnostics_.setHardwareID("none");
   diagnostics_.add("scans", this, &DynamicPointsFilter::diagnose);
@@ -89,7 +67,7 @@ void DynamicPointsFilter::start() {
   for (const Stream& stream : streams_) {
     if (count_publishers(stream.output_topic) > 0) {
       throw std::runtime_error(stream.output_topic +
-                               " is already published: another dynamic_points_filter is running (fast_lio "
+                               " is already published: another dynamic_points_filter is running (ranav_bringup "
                                "fast_lio_slam_launch.xml starts one). This one stops, it would double every scan");
     }
   }
@@ -169,8 +147,8 @@ void DynamicPointsFilter::release(Stream& stream) {
   while (!stream.waiting.empty()) {
     const auto oldest = stream.waiting.begin();
     const int64_t stamp = oldest->first;
-    const auto tracks = tracks_.find(stamp);
-    const bool has_tracks = tracks != tracks_.end();
+    const TracksByStamp::const_iterator own = tracks_.find(stamp);
+    const bool has_tracks = own != tracks_.end();
     // The tracker answers the scans in order: once it has answered a later one, this one will not get its tracks
     const bool skipped = !has_tracks && !tracks_.empty() && tracks_.rbegin()->first > stamp;
     // The odometry of a scan can come after the tracks of the next one: a body cloud waits for it all the same
@@ -182,39 +160,34 @@ void DynamicPointsFilter::release(Stream& stream) {
     }
     Waiting cloud = std::move(oldest->second);
     stream.waiting.erase(oldest);
-    if (has_tracks && has_pose) {
-      filterAndPublish(stream, std::move(cloud), *tracks->second, 0.0);
+    // Without the tracks of its scan (the detector skipped it, or is late): those of the closest scan, moved on
+    const TracksByStamp::const_iterator used = has_tracks ? own : closestTracks(stamp);
+    if (!has_pose || used == tracks_.end()) {
+      ++unfiltered_;
+      publishUnfiltered(stream, std::move(cloud));
+    } else if (const double dt = static_cast<double>(stamp - used->first) * 1e-9;
+               !filterAndPublish(stream, std::move(cloud), *used->second, dt)) {
+      ++unfiltered_;
     } else {
-      closeWithoutItsTracks(stream, std::move(cloud));
+      ++(has_tracks ? filtered_ : with_other_tracks_);
     }
   }
 }
 
-void DynamicPointsFilter::closeWithoutItsTracks(Stream& stream, Waiting waiting) {
-  ++without_tracks_;
-  if (on_timeout_ == OnTimeout::kDrop) {
-    ++dropped_;
-    return;
+DynamicPointsFilter::TracksByStamp::const_iterator DynamicPointsFilter::closestTracks(int64_t stamp) const {
+  if (tracks_.empty()) {
+    return tracks_.end();
   }
-  if (on_timeout_ == OnTimeout::kLastTracks && !tracks_.empty()) {
-    const int64_t stamp = stampOf(waiting.cloud->header);
-    // The tracks of the scan closest in time, before or after
-    const auto after = tracks_.lower_bound(stamp);
-    auto closest = after;
-    if (after == tracks_.end() ||
-        (after != tracks_.begin() && stamp - std::prev(after)->first < after->first - stamp)) {
-      closest = std::prev(after);
-    }
-    const double dt = static_cast<double>(stamp - closest->first) * 1e-9;
-    if (std::abs(dt) <= max_track_staleness_ && (!stream.body || poses_.count(stamp) > 0)) {
-      filterAndPublish(stream, std::move(waiting), *closest->second, dt);
-      return;
-    }
+  const auto after = tracks_.lower_bound(stamp);
+  auto closest = after;
+  if (after == tracks_.end() || (after != tracks_.begin() && stamp - std::prev(after)->first < after->first - stamp)) {
+    closest = std::prev(after);
   }
-  publishUnfiltered(stream, std::move(waiting));
+  const bool fresh = std::abs(stamp - closest->first) <= static_cast<int64_t>(max_track_staleness_ * 1e9);
+  return fresh ? closest : tracks_.end();
 }
 
-void DynamicPointsFilter::filterAndPublish(Stream& stream, Waiting waiting, const TrackedObjects& tracks, double dt) {
+bool DynamicPointsFilter::filterAndPublish(Stream& stream, Waiting waiting, const TrackedObjects& tracks, double dt) {
   Eigen::Isometry3d tracks_from_cloud = Eigen::Isometry3d::Identity();
   std::string frame = waiting.cloud->header.frame_id;
   if (stream.body) {
@@ -228,13 +201,12 @@ void DynamicPointsFilter::filterAndPublish(Stream& stream, Waiting waiting, cons
                           "the FAST-LIO odometry",
                           tracks.header.frame_id.c_str(), stream.input_topic.c_str(), frame.c_str());
     publishUnfiltered(stream, std::move(waiting));
-    return;
+    return false;
   }
   const std::vector<Cylinder> cylinders = cylindersOf(tracks, dt);
   if (cylinders.empty()) {
-    ++filtered_;
     publishUnfiltered(stream, std::move(waiting));  // nobody around: the very cloud that came in
-    return;
+    return true;
   }
   auto kept = std::make_unique<PointCloud2>();
   std::unique_ptr<PointCloud2> removed;
@@ -246,16 +218,16 @@ void DynamicPointsFilter::filterAndPublish(Stream& stream, Waiting waiting, cons
     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 5000,
                           "%s without FLOAT32 x y z fields or with short data: not filtered", stream.input_topic.c_str());
     publishUnfiltered(stream, std::move(waiting));
-    return;
+    return false;
   }
   longest_wait_ = std::max(
       longest_wait_, std::chrono::duration<double>(std::chrono::steady_clock::now() - waiting.since).count());
-  ++filtered_;
   points_removed_ += *count;
   stream.publisher->publish(std::move(kept));
   if (removed) {
     removed_publisher_->publish(std::move(removed));
   }
+  return true;
 }
 
 void DynamicPointsFilter::publishUnfiltered(Stream& stream, Waiting waiting) {
@@ -294,19 +266,21 @@ void DynamicPointsFilter::diagnose(diagnostic_updater::DiagnosticStatusWrapper& 
     status.summary(DiagnosticStatus::OK, "pass-through: the clouds are not filtered");
     return;
   }
-  if (without_tracks_ > 0) {
+  if (unfiltered_ > 0) {
     status.summaryf(DiagnosticStatus::WARN,
-                    "%zu clouds went without the tracks or the odometry of their scan (detector late or down)",
-                    without_tracks_);
+                    "%zu clouds went out unfiltered: no tracks within max_track_staleness (detector down?) or no "
+                    "odometry of their scan",
+                    unfiltered_);
   } else {
     status.summary(DiagnosticStatus::OK, "filtering");
   }
-  status.add("clouds filtered", filtered_);
-  status.add("clouds without the tracks or the odometry of their scan", without_tracks_);
-  status.add("clouds dropped", dropped_);
+  status.add("clouds filtered with the tracks of their scan", filtered_);
+  // The CPU detector skips the scans that come while it is busy
+  status.add("clouds filtered with the tracks of another scan", with_other_tracks_);
+  status.add("clouds unfiltered", unfiltered_);
   status.add("points removed", points_removed_);
   status.addf("longest wait [ms]", "%.1f", longest_wait_ * 1e3);
-  filtered_ = without_tracks_ = dropped_ = points_removed_ = 0;
+  filtered_ = with_other_tracks_ = unfiltered_ = points_removed_ = 0;
   longest_wait_ = 0.0;
 }
 

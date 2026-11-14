@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -91,7 +92,7 @@ class DynamicPointsFilterTest : public test::RosTest {
     registered_ = io_->create_publisher<PointCloud2>("/cloud_registered", 20);
     body_ = io_->create_publisher<PointCloud2>("/cloud_registered_body", 20);
     odometry_ = io_->create_publisher<Odometry>("/Odometry", 20);
-    tracks_ = io_->create_publisher<TrackedObjects>("/perception/tracks_all", 20);
+    tracks_ = io_->create_publisher<TrackedObjects>("/perception/tracks", 20);
     registered_static_ = collect<PointCloud2>("/registered_scan_static");
     body_static_ = collect<PointCloud2>("/cloud_registered_body_static");
     removed_ = collect<PointCloud2>("/perception/dynamic_points");
@@ -390,23 +391,6 @@ TEST_F(DynamicPointsFilterTest, TracksOlderThanMaxTrackStalenessAreNotUsed) {
   EXPECT_EQ(registered_static_->front(), cloud);
 }
 
-TEST_F(DynamicPointsFilterTest, OnTimeoutPassthroughIgnoresTheLastTracks) {
-  start(filtering(0.3).append_parameter_override("on_timeout", "passthrough"), true);
-  tracks_->publish(makeTracks({makeTrack(1.0, 0.0)}, 10, 0));
-  spinFor(100ms);
-  const PointCloud2 cloud = makeFastLioCloud({{1.0F, 0.0F, 0.5F, 1.0F}}, "camera_init", 10, 100000000);
-  registered_->publish(cloud);
-  ASSERT_TRUE(spinUntil([&] { return !registered_static_->empty(); }, 2s));
-  EXPECT_EQ(registered_static_->front(), cloud);
-}
-
-TEST_F(DynamicPointsFilterTest, OnTimeoutDropDiscardsTheCloud) {
-  start(filtering(0.3).append_parameter_override("on_timeout", "drop"), true);
-  registered_->publish(makeFastLioCloud(manyPoints(10), "camera_init"));
-  spinFor(900ms);
-  EXPECT_TRUE(registered_static_->empty());
-}
-
 // The tracker answers the scans in order: once it has answered a later one, an earlier one will never get its tracks.
 TEST_F(DynamicPointsFilterTest, TracksOfALaterScanCloseTheEarlierCloudsAtOnce) {
   start(filtering(), true);  // max_wait 5 s: only the later tracks can let the cloud out within the 2 s below
@@ -439,21 +423,47 @@ TEST_F(DynamicPointsFilterTest, TracksOfAnotherFrameAreNotApplied) {
   EXPECT_EQ(registered_static_->front(), cloud);
 }
 
-TEST_F(DynamicPointsFilterTest, ScansWithoutTracksInTimeShowUpInTheDiagnostics) {
-  const auto diagnostics = collect<DiagnosticArray>("/diagnostics");
-  start(filtering(0.2), true);
-  registered_->publish(makeFastLioCloud(manyPoints(10), "camera_init"));
-  const auto warned = [&] {
-    for (const DiagnosticArray& array : *diagnostics) {
-      for (const DiagnosticStatus& status : array.status) {
-        if (status.name.find("dynamic_points_filter") != std::string::npos && status.level == DiagnosticStatus::WARN) {
-          return true;
+// The status of the filter in the reports of /diagnostics, from the first that has `key` at `value`.
+std::optional<DiagnosticStatus> reportWith(const std::vector<DiagnosticArray>& reports, const std::string& key,
+                                           const std::string& value) {
+  for (const DiagnosticArray& array : reports) {
+    for (const DiagnosticStatus& status : array.status) {
+      if (status.name.find("dynamic_points_filter") == std::string::npos) {
+        continue;
+      }
+      for (const auto& pair : status.values) {
+        if (pair.key == key && pair.value == value) {
+          return status;
         }
       }
     }
-    return false;
-  };
-  EXPECT_TRUE(spinUntil(warned, 4s));
+  }
+  return std::nullopt;
+}
+
+TEST_F(DynamicPointsFilterTest, CloudsThatWentOutWithThePeopleInThemAreAWarning) {
+  const auto diagnostics = collect<DiagnosticArray>("/diagnostics");
+  start(filtering(0.2), true);
+  registered_->publish(makeFastLioCloud(manyPoints(10), "camera_init"));
+  std::optional<DiagnosticStatus> report;
+  ASSERT_TRUE(spinUntil([&] { return (report = reportWith(*diagnostics, "clouds unfiltered", "1")).has_value(); }, 4s));
+  EXPECT_EQ(report->level, DiagnosticStatus::WARN);
+}
+
+// The CPU detector skips the scans that come while it is busy: their clouds go with the tracks of the next scan.
+TEST_F(DynamicPointsFilterTest, CloudsOfAScanTheDetectorSkippedAreNoWarning) {
+  const auto diagnostics = collect<DiagnosticArray>("/diagnostics");
+  start(filtering(), true);
+  registered_->publish(makeFastLioCloud(manyPoints(10), "camera_init", 10, 0));
+  spinFor(100ms);
+  tracks_->publish(makeTracks({}, 10, 100000000));
+  std::optional<DiagnosticStatus> report;
+  ASSERT_TRUE(spinUntil(
+      [&] {
+        return (report = reportWith(*diagnostics, "clouds filtered with the tracks of another scan", "1")).has_value();
+      },
+      4s));
+  EXPECT_EQ(report->level, DiagnosticStatus::OK);
 }
 
 }  // namespace

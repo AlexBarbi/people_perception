@@ -122,7 +122,7 @@ TEST(RemoveInsideCylinders, RefusesACloudWithLessDataThanItDeclares) {
 
 // --------------------------------------------------------------------------------------------------------------------
 
-const DetectorCloudParams kCrop{0.4, 21.0, -1.2, 2.2, 1.0};
+const DetectorCloudParams kCrop{0.4, 21.0, -1.2, 2.2};
 
 struct Xyzirc {
   float x, y, z;
@@ -206,8 +206,8 @@ TEST(ToDetectorCloud, DropsTheRobotTheFarPointsAndWhatIsOutsideTheHeightWindow) 
       {3.0F, 0.0F, 2.5F, 1.0F},     // above the window
       {3.0F, 0.0F, -1.3F, 1.0F},    // below the window
       {nan, 0.0F, 0.0F, 1.0F},      // no return
-      {0.0F, 0.5F, 1.0F, 300.0F},   // kept, intensity saturates
-      {-4.0F, -3.0F, -0.4F, -5.0F}, // kept, intensity floors at 0
+      {0.0F, 0.5F, 1.0F, 300.0F},   // kept
+      {-4.0F, -3.0F, -0.4F, -5.0F}, // kept
   });
   PointCloud2 out;
   ASSERT_TRUE(toDetectorCloud(body, Eigen::Matrix3d::Identity(), kCrop, "sensor_level", out));
@@ -218,13 +218,8 @@ TEST(ToDetectorCloud, DropsTheRobotTheFarPointsAndWhatIsOutsideTheHeightWindow) 
   EXPECT_EQ(a.x, 2.0F);
   EXPECT_EQ(a.y, 0.0F);
   EXPECT_EQ(a.z, 0.0F);
-  EXPECT_EQ(a.intensity, 100);
-  EXPECT_EQ(a.return_type, 0);
-  EXPECT_EQ(a.channel, 0);
   EXPECT_EQ(b.y, 0.5F);
-  EXPECT_EQ(b.intensity, 255);
   EXPECT_EQ(c.x, -4.0F);
-  EXPECT_EQ(c.intensity, 0);
 }
 
 TEST(ToDetectorCloud, PutsThePointsInTheLevelFrame) {
@@ -254,13 +249,18 @@ TEST(ToDetectorCloud, EmptyCloudGivesAValidEmptyCloud) {
   EXPECT_EQ(out.header.stamp, body.header.stamp);
 }
 
-TEST(ToDetectorCloud, CloudWithoutIntensityGetsZero) {
-  PointCloud2 body = makeFastLioCloud({{2.0F, 0.0F, 0.0F, 77.0F}});
-  body.fields.erase(body.fields.begin() + 6);  // no intensity
+// The model reads x y z only
+TEST(ToDetectorCloud, IntensityReturnTypeAndChannelAreZero) {
+  const PointCloud2 body = makeFastLioCloud({{2.0F, 0.0F, 0.0F, 77.0F}, {3.0F, 1.0F, 0.0F, 300.0F}});
   PointCloud2 out;
   ASSERT_TRUE(toDetectorCloud(body, Eigen::Matrix3d::Identity(), kCrop, "sensor_level", out));
-  ASSERT_EQ(out.width, 1u);
-  EXPECT_EQ(detectorPoint(out, 0).intensity, 0);
+  ASSERT_EQ(out.width, 2u);
+  for (size_t i = 0; i < 2; ++i) {
+    const Xyzirc point = detectorPoint(out, i);
+    EXPECT_EQ(point.intensity, 0);
+    EXPECT_EQ(point.return_type, 0);
+    EXPECT_EQ(point.channel, 0);
+  }
 }
 
 TEST(ToDetectorCloud, RefusesACloudWithoutXyz) {

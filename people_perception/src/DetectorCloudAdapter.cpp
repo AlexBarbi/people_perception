@@ -5,13 +5,9 @@
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
+#include "people_perception/CloudLayout.h"
+
 namespace people_perception {
-
-namespace {
-
-int64_t stampOf(const std_msgs::msg::Header& header) { return rclcpp::Time(header.stamp).nanoseconds(); }
-
-}  // namespace
 
 DetectorCloudAdapter::DetectorCloudAdapter(const rclcpp::NodeOptions& options)
     : Node("detector_cloud_adapter", options) {
@@ -22,7 +18,6 @@ DetectorCloudAdapter::DetectorCloudAdapter(const rclcpp::NodeOptions& options)
   params_.max_range_xy = declare_parameter<double>("max_range_xy");
   params_.z_min = declare_parameter<double>("z_min");
   params_.z_max = declare_parameter<double>("z_max");
-  params_.intensity_scale = declare_parameter<double>("intensity_scale");
 
   // Reliable on both sides, as FAST-LIO publishes: its clouds are about 1 MB and best effort loses them to fragment
   // drops

@@ -21,4 +21,15 @@ bool hasAllPoints(const sensor_msgs::msg::PointCloud2& cloud) {
              static_cast<size_t>(cloud.height - 1) * cloud.row_step + static_cast<size_t>(cloud.width) * cloud.point_step;
 }
 
+sensor_msgs::msg::PointCloud2 emptyLike(const sensor_msgs::msg::PointCloud2& like) {
+  sensor_msgs::msg::PointCloud2 cloud;
+  cloud.header = like.header;
+  cloud.fields = like.fields;
+  cloud.is_bigendian = like.is_bigendian;
+  cloud.point_step = like.point_step;
+  cloud.is_dense = like.is_dense;
+  cloud.height = 1;
+  return cloud;
+}
+
 }  // namespace people_perception

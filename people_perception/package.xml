@@ -4,10 +4,9 @@
   <name>people_perception</name>
   <version>0.0.0</version>
   <description>
-    People detection and tracking on the RoboSense Airy scans of FAST-LIO (docs/perception_pipeline.md): keeps the
-    people out of the SC-PGO map and of the TARE coverage, and hands them to the Opti-Pessi controller as obstacles.
-    The cloud adapter for the detector (block B3), the tracker (B5), the dynamic points filter (B6) and the
-    obstacle adapter (B10).
+    People detection and tracking on the RoboSense Airy scans of FAST-LIO: keeps the people out of the SC-PGO map
+    and of the TARE coverage, and hands them to the Opti-Pessi controller as obstacles. The cloud adapter for the
+    detector, the tracker, the dynamic points filter, and CenterPoint on the CPU.
   </description>
   <maintainer email="alejandro.enrique.barbi@gmail.com">abarbi</maintainer>
   <license>BSD</license>
@@ -18,22 +17,23 @@
   <depend>diagnostic_updater</depend>
   <depend>eigen</depend>
   <depend>geometry_msgs</depend>
+  <depend>legged_controllers</depend>
   <depend>nav_msgs</depend>
-  <depend>people_perception_msgs</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_eigen</depend>
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
 
   <exec_depend>autoware_lidar_centerpoint</exec_depend>
-  <exec_depend>legged_controllers</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>rosbag2_py</exec_depend>
   <exec_depend>rosidl_runtime_py</exec_depend>
-  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros_py</exec_depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>

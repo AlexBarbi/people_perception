@@ -1,6 +1,6 @@
 #pragma once
 
-// ROS 2 node: block B3 of docs/perception_pipeline.md. For every scan of FAST-LIO it publishes
+// ROS 2 node: the front end of the detector. For every scan of FAST-LIO it publishes
 //   output_cloud_topic   the body cloud as autoware_lidar_centerpoint takes it (see DetectorCloud.h), in level_frame
 //   TF                   odometry frame -> level_frame: the position of the body and its yaw alone
 // both with the stamp of the scan. The tracker brings the detections back to the odometry frame with that TF.

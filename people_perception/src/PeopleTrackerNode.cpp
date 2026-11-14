@@ -1,7 +1,6 @@
 #include "people_perception/PeopleTrackerNode.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <utility>
 #include <vector>
@@ -16,7 +15,7 @@ namespace {
 using autoware_perception_msgs::msg::ObjectClassification;
 using autoware_perception_msgs::msg::Shape;
 using autoware_perception_msgs::msg::TrackedObject;
-using autoware_perception_msgs::msg::TrackedObjectKinematics;
+using legged_controllers::msg::Obstacle;
 using visualization_msgs::msg::Marker;
 
 bool isPedestrian(const autoware_perception_msgs::msg::DetectedObject& object) {
@@ -24,18 +23,6 @@ bool isPedestrian(const autoware_perception_msgs::msg::DetectedObject& object) {
       object.classification.begin(), object.classification.end(),
       [](const ObjectClassification& a, const ObjectClassification& b) { return a.probability < b.probability; });
   return best != object.classification.end() && best->label == ObjectClassification::PEDESTRIAN;
-}
-
-double yawOf(const Eigen::Quaterniond& q) {
-  const Eigen::Matrix3d R = q.toRotationMatrix();
-  return std::atan2(R(1, 0), R(0, 0));
-}
-
-geometry_msgs::msg::Quaternion yawQuaternion(double yaw) {
-  geometry_msgs::msg::Quaternion q;
-  q.z = std::sin(yaw / 2.0);
-  q.w = std::cos(yaw / 2.0);
-  return q;
 }
 
 TrackedObject toMessage(const Track& track) {
@@ -50,7 +37,7 @@ TrackedObject toMessage(const Track& track) {
   pose.pose.position.x = track.position().x();
   pose.pose.position.y = track.position().y();
   pose.pose.position.z = track.z;
-  pose.pose.orientation = yawQuaternion(track.yaw);
+  pose.pose.orientation.w = 1.0;  // no heading: the box of a pedestrian says little, and not which way they face
   pose.covariance[0] = track.covariance(0, 0);
   pose.covariance[1] = pose.covariance[6] = track.covariance(0, 1);
   pose.covariance[7] = track.covariance(1, 1);
@@ -60,9 +47,6 @@ TrackedObject toMessage(const Track& track) {
   twist.covariance[0] = track.covariance(2, 2);
   twist.covariance[1] = twist.covariance[6] = track.covariance(2, 3);
   twist.covariance[7] = track.covariance(3, 3);
-  // The heading of a pedestrian box says little, and not which way they face
-  object.kinematics.orientation_availability = TrackedObjectKinematics::SIGN_UNKNOWN;
-  object.kinematics.is_stationary = track.stationary;
 
   object.shape.type = Shape::BOUNDING_BOX;
   object.shape.dimensions.x = track.dimensions.x();
@@ -84,8 +68,15 @@ PeopleTrackerNode::PeopleTrackerNode(const rclcpp::NodeOptions& options) : Node(
 
   const rclcpp::QoS qos(static_cast<size_t>(declare_parameter<int>("qos_depth")));
   tracks_publisher_ = create_publisher<TrackedObjects>(declare_parameter<std::string>("tracks_topic"), qos);
-  tracks_all_publisher_ = create_publisher<TrackedObjects>(declare_parameter<std::string>("tracks_all_topic"), qos);
   markers_publisher_ = create_publisher<MarkerArray>(declare_parameter<std::string>("markers_topic"), qos);
+  // Read with enabled false too: a value missing from the yaml shows now, not the day the obstacles are switched on
+  const bool obstacles = declare_parameter<bool>("obstacles.enabled");
+  const std::string obstacles_topic = declare_parameter<std::string>("obstacles.topic");
+  obstacles_frame_ = declare_parameter<std::string>("obstacles.frame");
+  obstacles_max_range_ = declare_parameter<double>("obstacles.max_range");
+  if (obstacles) {
+    obstacles_publisher_ = create_publisher<ObstacleArray>(obstacles_topic, rclcpp::QoS(1));  // as the controller
+  }
   subscription_ = create_subscription<DetectedObjects>(
       declare_parameter<std::string>("detections_topic"), qos,
       [this](DetectedObjects::ConstSharedPtr msg) { onDetections(std::move(msg)); });
@@ -100,8 +91,6 @@ TrackerParams PeopleTrackerNode::readTrackerParams() {
   params.min_hits = static_cast<int>(declare_parameter<int>("min_hits"));
   params.hits_window = static_cast<int>(declare_parameter<int>("hits_window"));
   params.max_age = declare_parameter<double>("max_age");
-  params.stationary_speed = declare_parameter<double>("stationary_speed");
-  params.stationary_hysteresis = declare_parameter<double>("stationary_hysteresis");
   params.shape_smoothing = declare_parameter<double>("shape_smoothing");
   params.process_noise_acceleration = declare_parameter<double>("process_noise_acceleration");
   params.measurement_noise_position = declare_parameter<double>("measurement_noise_position");
@@ -120,7 +109,6 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
                          odom_frame_.c_str(), msg->header.frame_id.c_str(), e.what());
     return;
   }
-  const double frame_yaw = yawOf(Eigen::Quaterniond(odom_from_detector.linear()));
 
   std::vector<Detection> detections;
   for (const auto& object : msg->objects) {
@@ -131,8 +119,6 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     Detection detection;
     detection.position = odom_from_detector * Eigen::Vector3d(pose.position.x, pose.position.y, pose.position.z);
     detection.dimensions = Eigen::Vector3d(object.shape.dimensions.x, object.shape.dimensions.y, object.shape.dimensions.z);
-    detection.yaw = frame_yaw + yawOf(Eigen::Quaterniond(pose.orientation.w, pose.orientation.x, pose.orientation.y,
-                                                         pose.orientation.z));
     detection.score = object.existence_probability;
     detections.push_back(detection);
   }
@@ -144,29 +130,26 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     return;
   }
 
-  TrackedObjects confirmed, all;
-  confirmed.header.stamp = all.header.stamp = msg->header.stamp;
-  confirmed.header.frame_id = all.header.frame_id = odom_frame_;
+  TrackedObjects tracks;
+  tracks.header.stamp = msg->header.stamp;
+  tracks.header.frame_id = odom_frame_;
   MarkerArray markers;
   Marker clear;  // the tracks of the last message: there may be fewer now
-  clear.header = all.header;
+  clear.header = tracks.header;
   clear.action = Marker::DELETEALL;
   markers.markers.push_back(clear);
   int id = 0;
   for (const Track& track : tracker_->tracks()) {
-    all.objects.push_back(toMessage(track));
-    if (track.confirmed) {
-      confirmed.objects.push_back(all.objects.back());
-    }
+    tracks.objects.push_back(toMessage(track));
 
     // Confirmed green, tentative yellow, fainter while coasting on the prediction
     Marker box;
-    box.header = all.header;
+    box.header = tracks.header;
     box.ns = "box";
     box.id = id;
     box.type = Marker::CUBE;
-    box.pose = all.objects.back().kinematics.pose_with_covariance.pose;
-    box.scale = all.objects.back().shape.dimensions;
+    box.pose = tracks.objects.back().kinematics.pose_with_covariance.pose;
+    box.scale = tracks.objects.back().shape.dimensions;
     box.color.r = track.confirmed ? 0.1F : 0.9F;
     box.color.g = 0.8F;
     box.color.b = 0.1F;
@@ -175,7 +158,7 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     markers.markers.push_back(box);
 
     Marker label;
-    label.header = all.header;
+    label.header = tracks.header;
     label.ns = "speed";
     label.id = id;
     label.type = Marker::TEXT_VIEW_FACING;
@@ -191,7 +174,7 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     markers.markers.push_back(label);
 
     Marker arrow;  // where the person is in one second
-    arrow.header = all.header;
+    arrow.header = tracks.header;
     arrow.ns = "velocity";
     arrow.id = id;
     arrow.type = Marker::ARROW;
@@ -209,9 +192,46 @@ void PeopleTrackerNode::onDetections(DetectedObjects::ConstSharedPtr msg) {
     markers.markers.push_back(arrow);
     ++id;
   }
-  tracks_all_publisher_->publish(all);
-  tracks_publisher_->publish(confirmed);
+  tracks_publisher_->publish(tracks);
   markers_publisher_->publish(markers);
+  if (obstacles_publisher_) {
+    // The detections are in the frame of the sensor: its origin is where the sensor is
+    publishObstacles(msg->header.stamp, odom_from_detector.translation().head<2>());
+  }
+}
+
+void PeopleTrackerNode::publishObstacles(const builtin_interfaces::msg::Time& stamp, const Eigen::Vector2d& sensor) {
+  Eigen::Isometry3d obstacles_from_odom;
+  try {
+    obstacles_from_odom =
+        tf2::transformToEigen(tf_buffer_->lookupTransform(obstacles_frame_, odom_frame_, tf2::TimePointZero));
+  } catch (const tf2::TransformException& e) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No TF %s <- %s, no obstacles for the controller: %s",
+                         obstacles_frame_.c_str(), odom_frame_.c_str(), e.what());
+    return;
+  }
+  ObstacleArray obstacles;
+  obstacles.header.stamp = stamp;
+  obstacles.header.frame_id = obstacles_frame_;
+  for (const Track& track : tracker_->tracks()) {
+    // Each obstacle takes a slot of the controller, and its solve time grows with them
+    if (!track.confirmed || (track.position() - sensor).norm() > obstacles_max_range_) {
+      continue;
+    }
+    const Eigen::Vector3d position = obstacles_from_odom * Eigen::Vector3d(track.state.x(), track.state.y(), track.z);
+    Obstacle obstacle;
+    obstacle.type = Obstacle::HUMAN;
+    obstacle.position.x = position.x();
+    obstacle.position.y = position.y();
+    obstacle.position.z = position.z();
+    obstacles.obstacles.push_back(obstacle);
+  }
+  if (count_publishers(obstacles_publisher_->get_topic_name()) > 1) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000,
+                         "%s has another publisher: each message replaces the obstacles of the other one",
+                         obstacles_publisher_->get_topic_name());
+  }
+  obstacles_publisher_->publish(obstacles);
 }
 
 }  // namespace people_perception

@@ -1,5 +1,5 @@
-# detector_cloud_adapter (block B3 of docs/perception_pipeline.md): the body cloud of FAST-LIO as the CenterPoint node
-# takes it (PointXYZIRC, 16 bytes) and in a frame whose floor stays level while the robot rolls and pitches.
+# detector_cloud_adapter: the body cloud of FAST-LIO as the CenterPoint node takes it (PointXYZIRC, 16 bytes) and in a
+# frame whose floor stays level while the robot rolls and pitches.
 /**:
     ros__parameters:
         input_cloud_topic: /cloud_registered_body        # frame rslidar_lio: at the Airy, with the orientation of the base
@@ -16,4 +16,3 @@
         max_range_xy: 21.0               # [m] a little more than the model range (20.48)
         z_min: -1.2                      # [m] the Airy is 0.47 m above the floor when the robot stands: the floor is at
         z_max: 2.2                       #     z = -0.47. Model range (about -1.0 .. 2.0) plus 0.2 m
-        intensity_scale: 1.0             # intensity * scale, rounded and saturated to 0..255. The model does not read it

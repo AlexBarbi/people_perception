@@ -8,8 +8,8 @@
       # running), whole detection per scan, 4 threads: +-12.8 m (160 x 160) 84 ms median / 100 ms p90,
       # +-15.36 m 130 ms, +-20.48 m 244 ms; the model's +-51.2 m 1.6 s (8 threads). Against the TensorRT node on the
       # same scans the pedestrians agree as much at +-12.8 m (81 % of its detections) as at the full range (80 %):
-      # the rest are borderline scores, FP32 here against FP16 there. obstacle_adapter sends people up to 10 m
-      # (max_range); 12.8 m leaves the tracker a few metres to confirm a track before that.
+      # the rest are borderline scores, FP32 here against FP16 there. people_tracker sends people up to 10 m
+      # to the controller (obstacles.max_range); 12.8 m leaves the tracker a few metres to confirm a track before that.
       point_cloud_range: [-12.8, -12.8, -3.0, 12.8, 12.8, 5.0]
       # ONNX Runtime threads of each network. Leave cores to the controller and FAST-LIO on the robot computer.
       num_threads: 4

@@ -1,6 +1,5 @@
 #include "people_perception/DetectorCloud.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -40,7 +39,6 @@ bool toDetectorCloud(const sensor_msgs::msg::PointCloud2& body_cloud, const Eige
   if (x_offset < 0 || y_offset < 0 || z_offset < 0 || !hasAllPoints(body_cloud)) {
     return false;
   }
-  const int intensity_offset = float32Offset(body_cloud, "intensity");
 
   out.header.stamp = body_cloud.header.stamp;
   out.header.frame_id = level_frame;
@@ -79,19 +77,9 @@ bool toDetectorCloud(const sensor_msgs::msg::PointCloud2& body_cloud, const Eige
       if (range2 < min_range2 || range2 > max_range2 || p.z() < z_min || p.z() > z_max) {
         continue;
       }
-      float intensity = 0.0F;
-      if (intensity_offset >= 0) {
-        std::memcpy(&intensity, point + intensity_offset, sizeof(float));
-        intensity *= static_cast<float>(params.intensity_scale);
-      }
-      // The model reads x y z only (point_feature_size 4): a saturated intensity is enough
-      const uint8_t intensity_u8 =
-          std::isfinite(intensity) ? static_cast<uint8_t>(std::clamp(std::lround(intensity), 0L, 255L)) : uint8_t{0};
-
       const size_t end = out.data.size();
-      out.data.resize(end + kDetectorPointStep, 0);  // return_type and channel stay 0
+      out.data.resize(end + kDetectorPointStep, 0);  // intensity, return_type and channel stay 0
       std::memcpy(out.data.data() + end, p.data(), 3 * sizeof(float));
-      out.data[end + 12] = intensity_u8;
     }
   }
   out.width = static_cast<uint32_t>(out.data.size() / kDetectorPointStep);

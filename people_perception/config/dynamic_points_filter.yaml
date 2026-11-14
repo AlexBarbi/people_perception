@@ -1,7 +1,6 @@
-# dynamic_points_filter (block B6 of docs/perception_pipeline.md): the scans of FAST-LIO without the points of the
-# tracked people, for what accumulates over time (TARE coverage, SC-PGO keyframes, and the visibility graph of
-# far_planner, through terrain maps of its own: ranav_bringup explore_warehouse_launch.xml and, with people_free,
-# far_planner_launch.xml).
+# dynamic_points_filter: the scans of FAST-LIO without the points of the tracked people, for what accumulates over time
+# (TARE coverage, SC-PGO keyframes, and the visibility graph of far_planner, through terrain maps of its own:
+# ranav_bringup explore_warehouse_launch.xml and, with people_free, far_planner_launch.xml).
 # terrainAnalysis and terrainAnalysisExt (/terrain_map, /terrain_map_ext) keep reading /cloud_registered: what avoids
 # collisions (TARE's viewpoints, the goal bridge) must see the people.
 /**:
@@ -19,8 +18,8 @@
             input_topic: /cloud_registered_body
             output_topic: /cloud_registered_body_static      # SC-PGO: remap in fast_lio_slam_launch.xml
 
-        # The rest is used with enabled: true only. Starting values of the document, to be tuned on recorded data.
-        tracks_topic: /perception/tracks_all             # tentative and coasting tracks too: a few static points
+        # The rest is used with enabled: true only. Starting values, to be tuned on recorded data.
+        tracks_topic: /perception/tracks                 # tentative and coasting tracks too: a few static points
                                                          # lost cost little, the points of a person stay in the map
         odometry_topic: /Odometry                        # pose of the body cloud in the frame of the tracks
         removed_points_topic: /perception/dynamic_points # what was taken out of registered_cloud
@@ -33,14 +32,12 @@
         min_radius: 0.35                 # [m]
         margin_z_down: 0.10              # [m]
         margin_z_up: 0.20                # [m]
-        position_sigma_factor: 1.0       # the document's coast_inflation (0.5 m/s): TrackedObjects does not say for
-                                         # how long a track has coasted, its covariance says where it may be. With the
-                                         # tracker tuning that ships it is about 0.4 m after 1 s
+        position_sigma_factor: 1.0       # TrackedObjects does not say for how long a track has coasted, its covariance
+                                         # says where it may be. With the tracker tuning that ships it is about 0.4 m
+                                         # after 1 s
 
-        # A cloud waits for the tracks of its scan
-        max_wait: 0.25                   # [s] at most, then on_timeout
-        on_timeout: last_tracks          # last_tracks: the tracks of the closest scan, moved on with their velocity,
-                                         # if within max_track_staleness, else unfiltered | passthrough: unfiltered |
-                                         # drop: the cloud is discarded
+        # A cloud waits for the tracks of its scan. Without them (late, or a scan the detector skipped) it goes with
+        # the tracks of the closest scan, moved on with their velocity, if within max_track_staleness; else unfiltered
+        max_wait: 0.25                   # [s] at most
         max_track_staleness: 1.0         # [s]
-        queue_size: 10                   # clouds waiting per topic; one more lets the oldest go by on_timeout
+        queue_size: 10                   # clouds waiting per topic; one more lets the oldest go without its tracks

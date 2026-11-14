@@ -8,16 +8,6 @@ namespace people_perception {
 
 namespace {
 
-void startLike(const sensor_msgs::msg::PointCloud2& in, sensor_msgs::msg::PointCloud2& out) {
-  out.header = in.header;
-  out.fields = in.fields;
-  out.is_bigendian = in.is_bigendian;
-  out.point_step = in.point_step;
-  out.is_dense = in.is_dense;
-  out.height = 1;
-  out.data.clear();
-}
-
 void finish(sensor_msgs::msg::PointCloud2& out) {
   out.width = static_cast<uint32_t>(out.data.size() / out.point_step);
   out.row_step = out.width * out.point_step;
@@ -36,10 +26,10 @@ std::optional<size_t> removeInsideCylinders(const sensor_msgs::msg::PointCloud2&
   if (x_offset < 0 || y_offset < 0 || z_offset < 0 || !hasAllPoints(in)) {
     return std::nullopt;
   }
-  startLike(in, kept);
+  kept = emptyLike(in);
   kept.data.reserve(static_cast<size_t>(in.height) * in.width * in.point_step);
   if (removed != nullptr) {
-    startLike(in, *removed);
+    *removed = emptyLike(in);
   }
 
   size_t count = 0;

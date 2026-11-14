@@ -16,13 +16,22 @@ find_package(diagnostic_updater REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(people_perception_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+
+# The ObstacleArray of OptiPessiController is a message of legged_controllers. find_package(legged_controllers) would
+# load the controller stack that package exports (ocs2, pinocchio, casadi): only its message targets are imported.
+find_path(legged_controllers_CMAKE_DIR legged_controllers__rosidl_typesupport_cppExport.cmake
+  PATH_SUFFIXES share/legged_controllers/cmake REQUIRED)
+foreach(export export_legged_controllers__rosidl_generator_c export_legged_controllers__rosidl_generator_cpp
+        legged_controllers__rosidl_typesupport_cpp)
+  include(${legged_controllers_CMAKE_DIR}/${export}Export.cmake)
+endforeach()
 
 ###########
 ## Build ##
@@ -35,22 +44,25 @@ add_library(${PROJECT_NAME}_nodes STATIC
   src/DetectorCloud.cpp
   src/DetectorCloudAdapter.cpp
   src/DynamicPointsFilter.cpp
-  src/ObstacleAdapter.cpp
   src/PeopleTracker.cpp
   src/PeopleTrackerNode.cpp
 )
 target_include_directories(${PROJECT_NAME}_nodes PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(${PROJECT_NAME}_nodes PUBLIC Eigen3::Eigen)
+target_link_libraries(${PROJECT_NAME}_nodes PUBLIC
+  Eigen3::Eigen
+  legged_controllers::legged_controllers__rosidl_generator_cpp
+  legged_controllers::legged_controllers__rosidl_typesupport_cpp
+)
 ament_target_dependencies(${PROJECT_NAME}_nodes PUBLIC
   autoware_perception_msgs
   diagnostic_updater
   geometry_msgs
   nav_msgs
-  people_perception_msgs
   rclcpp
   sensor_msgs
+  std_msgs
   tf2
   tf2_eigen
   tf2_ros
@@ -58,7 +70,7 @@ ament_target_dependencies(${PROJECT_NAME}_nodes PUBLIC
 )
 target_compile_options(${PROJECT_NAME}_nodes PRIVATE -Wall -Wextra)
 
-set(node_executables detector_cloud_adapter people_tracker dynamic_points_filter obstacle_adapter)
+set(node_executables detector_cloud_adapter people_tracker dynamic_points_filter)
 foreach(node ${node_executables})
   add_executable(${node} src/${node}.cpp)
   target_link_libraries(${node} ${PROJECT_NAME}_nodes)
@@ -81,8 +93,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_ros REQUIRED)
   find_package(diagnostic_msgs REQUIRED)
   find_package(tf2_msgs REQUIRED)
-  foreach(test_name test_detector_cloud_adapter test_people_tracker_node test_dynamic_points_filter
-          test_obstacle_adapter)
+  foreach(test_name test_detector_cloud_adapter test_people_tracker_node test_dynamic_points_filter)
     ament_add_ros_isolated_gtest(${test_name} test/${test_name}.cpp TIMEOUT 120)
     target_link_libraries(${test_name} ${PROJECT_NAME}_nodes)
     ament_target_dependencies(${test_name} diagnostic_msgs tf2_msgs)
@@ -94,9 +105,6 @@ if(BUILD_TESTING)
   # The dataset export, on bags written by the test
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_export_detector_dataset test/test_export_detector_dataset.py)
-  # The people as the obstacles of the Opti-Pessi controller
-  ament_add_pytest_test(test_dynamic_obstacles_to_opti_pessi_obstacles
-    test/test_dynamic_obstacles_to_opti_pessi_obstacles.py)
   # CenterPoint on the CPU: pre/post-processing against the CUDA kernels' definitions (the networks only when the
   # interpreter has onnxruntime)
   ament_add_pytest_test(test_centerpoint_cpu test/test_centerpoint_cpu.py)
@@ -111,7 +119,6 @@ install(TARGETS ${node_executables}
 )
 
 install(PROGRAMS scripts/export_detector_dataset.py
-                 scripts/dynamic_obstacles_to_opti_pessi_obstacles.py
                  scripts/centerpoint_cpu.py
   DESTINATION lib/${PROJECT_NAME}
 )

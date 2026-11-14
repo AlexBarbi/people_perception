@@ -2,8 +2,8 @@
 """
 export_detector_dataset.py
 
-Turns a bag into the raw data of a mmdetection3d custom dataset, to train the CenterPoint model of
-docs/perception_pipeline.md (section 5) on exactly what its node will receive: the clouds of
+Turns a bag into the raw data of a mmdetection3d custom dataset, to train the CenterPoint model of people_perception
+on exactly what its node will receive: the clouds of
 /perception/detector/pointcloud (frame sensor_level, FAST-LIO decimation and the crop of detector_cloud_adapter).
 Record that topic and /tf; to make it from the raw driver topics instead, play the bag through FAST-LIO and
 detector_cloud_adapter while recording.

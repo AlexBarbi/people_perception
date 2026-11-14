@@ -1,8 +1,8 @@
 #pragma once
 
-// Removal of the points of the tracked people from a cloud (block B6 of docs/perception_pipeline.md), on the bytes of
-// the PointCloud2: the points that stay keep every byte, whatever the layout, so the result has the fields, the
-// point_step, the frame and the stamp of the input.
+// Removal of the points of the tracked people from a cloud (dynamic_points_filter), on the bytes of the PointCloud2:
+// the points that stay keep every byte, whatever the layout, so the result has the fields, the point_step, the frame
+// and the stamp of the input.
 
 #include <cstddef>
 #include <optional>

@@ -24,8 +24,6 @@ TrackerParams shippedParams() {
   p.min_hits = 3;
   p.hits_window = 5;
   p.max_age = 1.0;
-  p.stationary_speed = 0.2;
-  p.stationary_hysteresis = 0.1;
   p.max_plausible_speed = 5.0;
   p.process_noise_acceleration = 1.5;
   p.measurement_noise_position = 0.1;
@@ -147,7 +145,7 @@ TEST(PeopleTracker, TrackIsDroppedAfterMaxAgeWithoutDetections) {
   EXPECT_TRUE(tracker.tracks().empty());
 }
 
-TEST(PeopleTracker, StandingPersonStaysConfirmedAndStationary) {
+TEST(PeopleTracker, StandingPersonStaysConfirmed) {
   PeopleTracker tracker(shippedParams());
   std::mt19937 random(3);
   std::normal_distribution<double> noise(0.0, 0.03);
@@ -157,7 +155,6 @@ TEST(PeopleTracker, StandingPersonStaysConfirmedAndStationary) {
       ASSERT_EQ(tracker.tracks().size(), 1u) << "scan " << scan;
       EXPECT_EQ(tracker.tracks().front().detections, scan + 1) << "another track at scan " << scan;
       EXPECT_TRUE(tracker.tracks().front().confirmed) << "scan " << scan;
-      EXPECT_TRUE(tracker.tracks().front().stationary) << "scan " << scan;
     }
   }
 }
@@ -171,45 +168,15 @@ TEST(PeopleTracker, WalkStopWalkKeepsTheTrack) {
   };
   see(tracker, 0, 30, path);
   ASSERT_EQ(confirmed(tracker).size(), 1u);
-  EXPECT_FALSE(confirmed(tracker).front()->stationary);
 
   see(tracker, 31, 130, path);
   ASSERT_EQ(tracker.tracks().size(), 1u);
   EXPECT_EQ(tracker.tracks().front().detections, 131);
-  EXPECT_TRUE(tracker.tracks().front().stationary);
   EXPECT_TRUE(tracker.tracks().front().confirmed);
 
   see(tracker, 131, 160, path);
   ASSERT_EQ(tracker.tracks().size(), 1u);
   EXPECT_EQ(tracker.tracks().front().detections, 161);
-  EXPECT_FALSE(tracker.tracks().front().stationary);
-}
-
-TEST(PeopleTracker, SlowDriftOfAStandingPersonStaysStationary) {
-  PeopleTracker tracker(shippedParams());
-  // Standing, then 0.25 m/s: above stationary_speed, below stationary_speed + stationary_hysteresis
-  const auto path = [](double t) { return Eigen::Vector2d(t < 3.0 ? 0.0 : 0.25 * (t - 3.0), 0.0); };
-  see(tracker, 0, 30, path);
-  ASSERT_TRUE(tracker.tracks().front().stationary);
-  for (int scan = 31; scan <= 90; ++scan) {
-    see(tracker, scan, scan, path);
-    EXPECT_TRUE(tracker.tracks().front().stationary) << "scan " << scan;
-  }
-}
-
-TEST(PeopleTracker, WalkerSlowingToAShuffleIsStillMoving) {
-  PeopleTracker tracker(shippedParams());
-  // 1.2 m/s, then down to 0.25 m/s over 3 s, then 0.25 m/s: never below stationary_speed
-  const auto speed = [](double t) { return t < 2.0 ? 1.2 : (t < 5.0 ? 1.2 - 0.95 * (t - 2.0) / 3.0 : 0.25); };
-  double x = 0.0;
-  for (int scan = 0; scan <= 90; ++scan) {
-    tracker.update(scan * kScan, {person(x, 0.0)});
-    x += speed(scan * kScan) * kScan;
-    if (scan >= 10) {
-      ASSERT_EQ(tracker.tracks().size(), 1u);
-      EXPECT_FALSE(tracker.tracks().front().stationary) << "scan " << scan;
-    }
-  }
 }
 
 TEST(PeopleTracker, TwoPeoplePassingEachOtherKeepTheirTracks) {

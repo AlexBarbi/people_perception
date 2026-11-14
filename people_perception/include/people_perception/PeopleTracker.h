@@ -1,7 +1,7 @@
 #pragma once
 
-// Tracker of block B5 of docs/perception_pipeline.md, without ROS: people on a plane, one Kalman filter per person
-// (position and velocity, constant velocity model), detections matched to tracks by the smallest total distance.
+// The tracker of people_tracker, without ROS: people on a plane, one Kalman filter per person (position and velocity,
+// constant velocity model), detections matched to tracks by the smallest total distance.
 //
 // A track starts tentative from a detection no track took, is confirmed once it was detected min_hits times in its
 // last hits_window scans with a mean score of min_score_confirm, coasts on its prediction while no detection matches
@@ -18,7 +18,6 @@ namespace people_perception {
 struct Detection {
   Eigen::Vector3d position = Eigen::Vector3d::Zero();    // box centre in the tracking frame [m]
   Eigen::Vector3d dimensions = Eigen::Vector3d::Zero();  // length, width, height [m]
-  double yaw = 0.0;
   double score = 0.0;
 };
 
@@ -30,8 +29,6 @@ struct TrackerParams {
   int min_hits = 0;
   int hits_window = 0;
   double max_age = 0.0;
-  double stationary_speed = 0.0;
-  double stationary_hysteresis = 0.0;
   double max_plausible_speed = 0.0;
   double process_noise_acceleration = 0.0;
   double measurement_noise_position = 0.0;
@@ -47,9 +44,7 @@ struct Track {
   Eigen::Matrix4d covariance = Eigen::Matrix4d::Zero();
   double z = 0.0;  // box centre
   Eigen::Vector3d dimensions = Eigen::Vector3d::Zero();
-  double yaw = 0.0;
   double score = 0.0;  // mean score of the detections that matched it
-  bool stationary = false;
 
   Eigen::Vector2d position() const { return state.head<2>(); }
   Eigen::Vector2d velocity() const { return state.tail<2>(); }

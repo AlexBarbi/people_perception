@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Checks people_perception in a running stack: FAST-LIO and what fast_lio_slam_launch.xml starts with it, on a robot
-that stands or walks.
+"""Checks people_perception in a running stack: FAST-LIO and what ranav_bringup fast_lio_slam_launch.xml starts with it,
+on a robot that stands or walks.
 
 Reads --scans consecutive scans of the two FAST-LIO clouds, of their static copies and of /Odometry, prints each check
 and exits 1 if any fails:
@@ -15,7 +15,8 @@ and exits 1 if any fails:
 and with --people:
   removed     /perception/dynamic_points holds exactly what is missing from /registered_scan_static
   detector    every scan has its /perception/detector/pointcloud: PointXYZIRC (16 bytes), frame sensor_level
-  tracks      every scan has its /perception/tracks_all and /perception/tracks, in the frame of /cloud_registered
+  tracks      every scan has its /perception/tracks, in the frame of /cloud_registered (the CPU detector skips the
+              scans that come while it is busy: those fail here)
 For information: the scan rate, the point layout, how many points a scan loses, how many people are tracked, and how
 long after its input a static cloud arrives here.
 """
@@ -35,7 +36,7 @@ PAIRS = {'registered': ('/cloud_registered', '/registered_scan_static'),
 ODOMETRY = '/Odometry'
 REMOVED = '/perception/dynamic_points'
 DETECTOR_CLOUD = '/perception/detector/pointcloud'
-TRACKS = ('/perception/tracks_all', '/perception/tracks')
+TRACKS = '/perception/tracks'
 XYZIRC = [('x', 0, PointField.FLOAT32), ('y', 4, PointField.FLOAT32), ('z', 8, PointField.FLOAT32),
           ('intensity', 12, PointField.UINT8), ('return_type', 13, PointField.UINT8),
           ('channel', 14, PointField.UINT16)]
@@ -75,7 +76,7 @@ def main():
     rclpy.init()
     node = rclpy.create_node('dynamic_points_filter_check')
     cloud_topics = [topic for pair in PAIRS.values() for topic in pair] + ([REMOVED] if args.people else [])
-    other_topics = [ODOMETRY] + ([DETECTOR_CLOUD, *TRACKS] if args.people else [])
+    other_topics = [ODOMETRY] + ([DETECTOR_CLOUD, TRACKS] if args.people else [])
     seen = {topic: {} for topic in cloud_topics + other_topics}  # topic -> stamp [ns] -> (what is kept, receive time)
     twice = Counter()
 
@@ -94,10 +95,8 @@ def main():
         from autoware_perception_msgs.msg import TrackedObjects
         node.create_subscription(PointCloud2, DETECTOR_CLOUD,
                                  keep(DETECTOR_CLOUD, lambda msg: (layout(msg), msg.height * msg.width)), 20)
-        for topic in TRACKS:
-            node.create_subscription(
-                TrackedObjects, topic,
-                keep(topic, lambda msg: (msg.header.frame_id, len(msg.objects))), 20)
+        node.create_subscription(TrackedObjects, TRACKS,
+                                 keep(TRACKS, lambda msg: (msg.header.frame_id, len(msg.objects))), 20)
 
     reference = PAIRS['registered'][0]
     deadline = time.monotonic() + args.timeout
@@ -180,13 +179,12 @@ def main():
                         f'{points} points, point_step {point_step}, fields {" ".join(f[0] for f in fields)})'))
 
         cloud_frame = seen[reference][scans[-1]][0][0][0]
-        unanswered = {topic: [stamp for stamp in scans if stamp not in seen[topic]] for topic in TRACKS}
-        frames = {seen[topic][stamp][0][0] for topic in TRACKS for stamp in scans if stamp in seen[topic]}
-        people = [seen[TRACKS[1]][stamp][0][1] for stamp in scans if stamp in seen[TRACKS[1]]]
-        results.append(('tracks', not any(unanswered.values()) and frames == {cloud_frame},
-                        f'{len(unanswered[TRACKS[0]])} scans without {TRACKS[0]}, {len(unanswered[TRACKS[1]])} without '
-                        f'{TRACKS[1]}; frame {", ".join(sorted(frames))}; confirmed people in a scan: '
-                        f'{min(people, default=0)} to {max(people, default=0)}'))
+        unanswered = [stamp for stamp in scans if stamp not in seen[TRACKS]]
+        frames = {seen[TRACKS][stamp][0][0] for stamp in scans if stamp in seen[TRACKS]}
+        people = [seen[TRACKS][stamp][0][1] for stamp in scans if stamp in seen[TRACKS]]
+        results.append(('tracks', not unanswered and frames == {cloud_frame},
+                        f'{len(unanswered)} scans without {TRACKS}; frame {", ".join(sorted(frames))}; tracked people '
+                        f'in a scan: {min(people, default=0)} to {max(people, default=0)}'))
 
     for name, ok, detail in results:
         print(f'{"PASS" if ok else "FAIL"} {name}: {detail}')

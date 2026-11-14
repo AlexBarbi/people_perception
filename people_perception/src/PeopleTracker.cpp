@@ -68,8 +68,6 @@ std::vector<int> assign(const Eigen::MatrixXd& cost) {
   return column_of;
 }
 
-double wrapAngle(double angle) { return std::atan2(std::sin(angle), std::cos(angle)); }
-
 }  // namespace
 
 PeopleTracker::PeopleTracker(const TrackerParams& params) : params_(params) {}
@@ -133,12 +131,6 @@ bool PeopleTracker::update(double stamp, const std::vector<Detection>& detection
         track.score >= params_.min_score_confirm) {
       track.confirmed = true;
     }
-    const double speed = track.velocity().norm();
-    if (track.stationary) {
-      track.stationary = speed <= params_.stationary_speed + params_.stationary_hysteresis;
-    } else {
-      track.stationary = speed < params_.stationary_speed;
-    }
   }
   tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),
                                [this](const Track& track) { return track.time_since_update > params_.max_age; }),
@@ -176,11 +168,10 @@ void PeopleTracker::correct(Track& track, const Detection& detection, double sta
   track.state += K * (measured - H * track.state);
   track.covariance = (Eigen::Matrix4d::Identity() - K * H) * track.covariance;
 
-  // Height, size and heading are not filtered, only smoothed
+  // Height and size are not filtered, only smoothed
   const double a = params_.shape_smoothing;
   track.z += a * (detection.position.z() - track.z);
   track.dimensions += a * (detection.dimensions - track.dimensions);
-  track.yaw = wrapAngle(track.yaw + a * wrapAngle(detection.yaw - track.yaw));
 
   track.score += (detection.score - track.score) / (track.detections + 1);
   ++track.detections;
@@ -197,9 +188,7 @@ Track PeopleTracker::start(const Detection& detection, double stamp) const {
   track.covariance.diagonal() << position_variance, position_variance, speed_variance, speed_variance;
   track.z = detection.position.z();
   track.dimensions = detection.dimensions;
-  track.yaw = detection.yaw;
   track.score = detection.score;
-  track.stationary = true;  // no velocity yet
   track.hits.push_back(true);
   track.detections = 1;
   track.last_detection = detection.position.head<2>();
