@@ -1,6 +1,6 @@
 # dynamic_points_filter (block B6 of docs/perception_pipeline.md): the scans of FAST-LIO without the points of the
 # tracked people, for what accumulates over time (TARE coverage, SC-PGO keyframes, and the visibility graph of
-# far_planner, through terrain maps of its own: tare_planner explore_warehouse_launch.xml and, with people_free,
+# far_planner, through terrain maps of its own: ranav_bringup explore_warehouse_launch.xml and, with people_free,
 # far_planner_launch.xml).
 # terrainAnalysis and terrainAnalysisExt (/terrain_map, /terrain_map_ext) keep reading /cloud_registered: what avoids
 # collisions (TARE's viewpoints, the goal bridge) must see the people.
@@ -14,7 +14,7 @@
                                          # already published: a second filter would double every scan
         registered_cloud:                # frame camera_init
             input_topic: /cloud_registered
-            output_topic: /registered_scan_static            # TARE: sub_registered_scan_topic_ in aliengo.yaml
+            output_topic: /registered_scan_static            # TARE: sub_registered_scan_topic_ in tare_aliengo.yaml
         body_cloud:                      # frame rslidar_lio
             input_topic: /cloud_registered_body
             output_topic: /cloud_registered_body_static      # SC-PGO: remap in fast_lio_slam_launch.xml

@@ -67,7 +67,7 @@ The launch file is included by `fast_lio_slam_launch.xml` of the `fast_lio` pack
 below. **Do not launch `people_perception_launch.xml` by hand next to it**: a second filter would double every scan.
 
 ```bash
-ros2 launch fast_lio fast_lio_slam_launch.xml people:=true
+ros2 launch ranav_bringup fast_lio_slam_launch.xml people:=true
 ```
 
 | Argument | Default | Effect |

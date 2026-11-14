@@ -1,6 +1,6 @@
 // Runs people_perception::DynamicPointsFilter (see include/people_perception/DynamicPointsFilter.h).
 //
-// fast_lio fast_lio_slam_launch.xml starts it (through people_perception_launch.xml): do not start a second one next
+// ranav_bringup fast_lio_slam_launch.xml starts it (through people_perception_launch.xml): do not start a second one next
 // to it. The parameters have no defaults in the code.
 
 #include <exception>
