@@ -197,8 +197,8 @@ The confirmed tracks as what an Optimistic-Pessimistic MPC needs of each person.
 `dynamic_obstacles_to_opti_pessi_obstacles.py` (`people_perception/scripts`) is started by this launch with
 `people:=true` unless `opti_pessi_obstacles:=false`.
 
-- It needs the TF `odom -> lio_map -> camera_init`, which `lio_odom_alignment.py` publishes (started by the TARE and
-  FAR launch files). Until then it relays nothing.
+- It needs the TF `odom -> lio_map -> camera_init`, which FAST-LIO publishes (`fast_lio_slam_launch.xml`, parameters
+  `alignment.*`) once the legged estimator's `/odom` runs. Until then it relays nothing.
 - Only type and position reach the controller. A pedestrian becomes a `HUMAN`; radius and maximum speed are then the
   ones of `opti_pessi_interface/config/task.info`, not the ones in the message.
 - Each message on `/opti_pessi/obstacles` replaces the previous one. **Two publishers erase each other**: do not run

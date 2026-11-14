@@ -15,8 +15,8 @@
                         /perception/tracks -> obstacle_adapter -> /perception/dynamic_obstacles (the people as
                         obstacles for an Optimistic-Pessimistic MPC, frame camera_init)
                         -> dynamic_obstacles_to_opti_pessi_obstacles.py -> /opti_pessi/obstacles
-                        (frame odom, what OptiPessiController reads; needs the odom -> lio_map TF of
-                        lio_odom_alignment.py, which explore_warehouse_launch.xml starts). opti_pessi_obstacles:=false
+                        (frame odom, what OptiPessiController reads; needs the odom -> lio_map TF that FAST-LIO
+                        publishes while the legged estimator's /odom runs). opti_pessi_obstacles:=false
                         leaves that topic to another publisher, as the camera detector yolo26_rgbd_detect: every
                         message there replaces the obstacles of the previous one, two publishers erase each other.
                       The detector is the CenterPoint model in centerpoint_model, run by

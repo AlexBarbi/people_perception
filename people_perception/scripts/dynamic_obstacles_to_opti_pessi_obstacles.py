@@ -6,7 +6,7 @@ Relays the people tracked on the lidar by people_perception (/perception/dynamic
 people_perception_msgs/DynamicObstacleArray, frame camera_init, one message per scan, an empty one included) to
 /opti_pessi/obstacles (legged_controllers/ObstacleArray), the obstacles OptiPessiController keeps away from. The
 controller takes them in odom only and does no TF lookup itself, so the positions are transformed to odom here
-(odom -> lio_map -> camera_init: lio_odom_alignment.py must be running, as in explore_warehouse_launch.xml).
+(odom -> lio_map -> camera_init, from FAST-LIO while the legged estimator's /odom runs: fast_lio_slam_launch.xml).
 
 Only type and position reach the controller. A pedestrian becomes a HUMAN: the radius and the maximum speed are the
 ones the controller has for that type (opti_pessi_interface/config/task.info: obstacleTypes), not the ones in the
