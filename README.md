@@ -213,11 +213,11 @@ repository:
 
 ```bash
 # the static clouds are the FAST-LIO ones byte for byte, none lost, none twice; same stamp on both clouds and /Odometry
-python3 people_perception/test/dynamic_points_filter_check.py
+python3 test/dynamic_points_filter_check.py
 
 # with people:=true: the same points in the same order but those taken out; /perception/dynamic_points is exactly what
 # is missing; a detector cloud and tracks for every scan (with the CPU detector the scans it skipped fail "tracks")
-python3 people_perception/test/dynamic_points_filter_check.py --people
+python3 test/dynamic_points_filter_check.py --people
 
 # what the filter did since the last report
 ros2 topic echo /diagnostics | grep -A12 dynamic_points_filter
