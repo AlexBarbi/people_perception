@@ -1,6 +1,6 @@
 """centerpoint_cpu.py: the numpy pre/post-processing against the CUDA kernels of autoware_lidar_centerpoint, written here
 as plain loops (one thread = one loop iteration); the two networks only when the interpreter has onnxruntime and the
-model folder exists (CENTERPOINT_MODEL, default ~/RaNAV/models/lidar_centerpoint/v4.1/short_range)."""
+model folder exists (CENTERPOINT_MODEL, default models/lidar_centerpoint/v4.1/short_range of the workspace)."""
 import importlib.util
 import math
 import os
@@ -17,7 +17,7 @@ cp = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cp)
 
 CLASSES = ['CAR', 'TRUCK', 'BUS', 'BICYCLE', 'PEDESTRIAN']
-MODEL = os.environ.get('CENTERPOINT_MODEL', os.path.expanduser('~/RaNAV/models/lidar_centerpoint/v4.1/short_range'))
+MODEL = os.environ.get('CENTERPOINT_MODEL', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'models', 'lidar_centerpoint', 'v4.1', 'short_range'))
 
 
 def config(half_range=5.12, encoder_features=10, max_voxels=64000, bins=(50.0, 90.0, 121.0, 200.0), threshold=0.35):

@@ -28,7 +28,7 @@ others are borderline scores (FP32 here, FP16 there).
 
 Scans arriving while one is processed are cached for the densification and only the newest is processed next.
 
-Needs onnxruntime (pip): run with the python of a venv that has it, e.g. the .venv-yolo of the workspace (the launch
+Needs onnxruntime (pip): run with the python of a venv that has it, e.g. the .venv of the workspace (the launch
 does, launch-prefix). Usage: ros2 launch ranav_bringup fast_lio_slam_launch.xml people:=true detector:=centerpoint_cpu
 """
 

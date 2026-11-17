@@ -97,7 +97,7 @@ cloud on `/perception/detector/pointcloud` with one `autoware_perception_msgs/De
 `/perception/detector/objects`, same header. Its parameters are in `config/centerpoint_common.param.yaml` (Autoware's
 file with `world_frame_id: camera_init` and a tighter NMS).
 
-- Needs CUDA and TensorRT. In the RaNAV workspace: CUDA toolkit 13.0 and TensorRT 10.13 (`m3_install.sh` at the
+- Needs CUDA and TensorRT. In the RaNAV workspace: CUDA toolkit 13.0 and TensorRT 10.13 (`./setup_ranav.sh cuda` at the
   workspace root), `LD_LIBRARY_PATH` including `/usr/local/cuda-13.0/lib64`.
 - `centerpoint_model` is a folder with the two `.onnx`, `ml_package.param.yaml` and
   `detection_class_remapper.param.yaml`. The TensorRT engines are built there on the first start (minutes) and are not
@@ -192,11 +192,11 @@ colcon build --packages-select people_perception
 | Dependency | Where it comes from |
 |---|---|
 | `rclcpp`, `sensor_msgs`, `std_msgs`, `nav_msgs`, `geometry_msgs`, `visualization_msgs`, `tf2`, `tf2_ros`, `tf2_eigen`, `diagnostic_updater`, Eigen | ROS 2 Jazzy |
-| `autoware_perception_msgs` | In the RaNAV workspace built from `src/autoware_msgs` (tag 1.13.0, that package only) |
+| `autoware_perception_msgs` | In the RaNAV workspace built from `third_party/autoware_msgs` (tag 1.13.0, that package only) |
 | `legged_controllers` | Its messages only (`Obstacle`, `ObstacleArray`): `CMakeLists.txt` imports their targets without `find_package(legged_controllers)`, which would load the whole controller stack (ocs2, pinocchio, casadi) |
 | FAST-LIO | Run time: `/cloud_registered`, `/cloud_registered_body`, `/Odometry` with the same stamp per scan |
 | `autoware_lidar_centerpoint` | Run time, with `people:=true` and `detector:=centerpoint` |
-| `python3-numpy`, `python3-yaml`, `rclpy`, `tf2_ros_py`, `rosbag2_py`, `rosidl_runtime_py` | The Python scripts; `centerpoint_cpu.py` also needs `onnxruntime` (pip, the `.venv-yolo` of the workspace) |
+| `python3-numpy`, `python3-yaml`, `rclpy`, `tf2_ros_py`, `rosbag2_py`, `rosidl_runtime_py` | The Python scripts; `centerpoint_cpu.py` also needs `onnxruntime` (pip, the `.venv` of the workspace) |
 
 Config and launch files are installed as copies: an edit does nothing until the package is rebuilt.
 
